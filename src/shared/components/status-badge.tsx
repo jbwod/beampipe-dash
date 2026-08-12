@@ -1,8 +1,8 @@
 import { cn } from "@/shared/lib/cn";
 
-const positive = new Set(["ok", "ready", "healthy", "active", "running", "completed", "configured", "reachable", "enabled", "submitted", "staged", "verified", "valid"]);
+const positive = new Set(["ok", "ready", "healthy", "active", "running", "completed", "configured", "reachable", "enabled", "submitted", "staged", "verified", "valid", "complete", "settled", "new"]);
 const caution = new Set(["pending", "queued", "retrying", "awaiting_scheduler", "draining", "warning", "profile_managed", "not_configured"]);
-const negative = new Set(["error", "failed", "stale", "unhealthy", "cancelled", "disabled", "critical", "not_submitted"]);
+const negative = new Set(["error", "failed", "stale", "unhealthy", "cancelled", "disabled", "critical", "not_submitted", "blocked", "incomplete"]);
 
 export function statusTone(status: string | null | undefined) {
   const normalized = status?.toLowerCase() ?? "unknown";

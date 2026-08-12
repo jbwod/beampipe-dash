@@ -204,6 +204,45 @@ export interface SourceRegistryRow {
   workflow_claim_expires_at: string | null;
 }
 
+export interface SourceExecutionStatus {
+  ready_for_execution: boolean;
+  discovery_complete: boolean;
+  workflow_run_pending: boolean;
+  discovery_signature: string | null;
+  last_executed_discovery_signature: string | null;
+  signature_matches_last_execution: boolean;
+  blockers: string[];
+  pending_age_seconds?: number | null;
+}
+
+export interface ArchiveMetadata {
+  uuid: string;
+  project_module: string;
+  source_identifier: string;
+  sbid: string;
+  metadata_json: unknown;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface SourceMetadataResponse {
+  source: SourceRegistryRow;
+  metadata: ArchiveMetadata[];
+  metadata_count: number;
+}
+
+export interface SourceBulkCreateResponse {
+  items: SourceRegistryRow[];
+  total: number;
+}
+
+export interface DiscoverTriggerResponse {
+  project_module: string;
+  marked_count: number;
+  source_identifiers: string[];
+  message: string;
+}
+
 export interface ProjectListItem {
   project_id: string;
   version: number;

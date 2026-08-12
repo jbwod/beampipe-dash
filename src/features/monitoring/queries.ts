@@ -18,6 +18,8 @@ import type {
   ReadyStatus,
   SchedulerJob,
   SourceRegistryRow,
+  SourceExecutionStatus,
+  SourceMetadataResponse,
   ValidationReport,
   Worker,
   WorkerLease,
@@ -90,6 +92,26 @@ export function useSources(project?: string) {
     queryFn: () => dashboardFetch<SourceRegistryRow[]>(`/api/beampipe/sources?${params}`),
     refetchInterval: 10_000,
   });
+}
+
+export function useSource(id: string) {
+  return useQuery({ queryKey: ["source", id], queryFn: () => dashboardFetch<SourceRegistryRow>(`/api/beampipe/sources/${id}`), refetchInterval: 10_000 });
+}
+
+export function useSourceStatus(id: string) {
+  return useQuery({ queryKey: ["source-status", id], queryFn: () => dashboardFetch<SourceExecutionStatus>(`/api/beampipe/sources/${id}/status`), refetchInterval: 10_000 });
+}
+
+export function useSourceMetadata(id: string) {
+  return useQuery({ queryKey: ["source-metadata", id], queryFn: () => dashboardFetch<SourceMetadataResponse>(`/api/beampipe/sources/${id}/metadata`), refetchInterval: 30_000 });
+}
+
+export function useSourceExecutions(id: string) {
+  return useQuery({ queryKey: ["source-executions", id], queryFn: () => dashboardFetch<Execution[]>(`/api/beampipe/sources/${id}/executions?limit=100`), refetchInterval: 10_000 });
+}
+
+export function useSourceEvents(id: string) {
+  return useQuery({ queryKey: ["source-events", id], queryFn: () => dashboardFetch<ProvenanceEvent[]>(`/api/beampipe/sources/${id}/events?limit=100`), refetchInterval: 10_000 });
 }
 
 export function useProjects() {

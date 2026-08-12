@@ -28,6 +28,8 @@ for (const viewport of [
       await page.getByLabel("Project ID").waitFor();
       await page.waitForFunction((expected) => document.querySelector('input') && [...document.querySelectorAll('input')].some((input) => input.value === expected), project);
     }
+    if (route === "sources") await page.waitForFunction(() => document.body.textContent?.includes("J103729-261901"));
+    if (route.startsWith("sources/")) await page.getByText(/SBID /).first().waitFor();
     await page.waitForTimeout(250);
     const name = route.replace(/[^a-zA-Z0-9_-]+/g, "-");
     await page.screenshot({ path: `${outputDir}/beampipe-dash-${name}-${viewport.name}.png`, fullPage: false });
