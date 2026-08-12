@@ -23,8 +23,13 @@ for (const viewport of [
     await page.goto(`${baseUrl}/${route}`, { waitUntil: "domcontentloaded" });
     await page.locator("h1").waitFor();
     if (route === "overview" && expectedText) await page.getByText(expectedText, { exact: true }).first().waitFor();
+    if (route.startsWith("projects/new?project=")) {
+      const project = new URL(`${baseUrl}/${route}`).searchParams.get("project");
+      await page.getByLabel("Project ID").waitFor();
+      await page.waitForFunction((expected) => document.querySelector('input') && [...document.querySelectorAll('input')].some((input) => input.value === expected), project);
+    }
     await page.waitForTimeout(250);
-    const name = route.replaceAll("/", "-");
+    const name = route.replace(/[^a-zA-Z0-9_-]+/g, "-");
     await page.screenshot({ path: `${outputDir}/beampipe-dash-${name}-${viewport.name}.png`, fullPage: false });
     const dimensions = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,

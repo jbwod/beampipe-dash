@@ -1,7 +1,7 @@
-import { Braces } from "lucide-react";
-import { EmptyState } from "@/shared/components/empty-state";
+import { Suspense } from "react";
+import { ProjectStudio } from "@/features/projects/project-studio";
 import { PageHeader } from "@/shared/components/page-header";
 
 export default function NewProjectPage() {
-  return <><PageHeader index="05A" title="New project" description="Build project-defined discovery and execution policy." /><div className="p-4 sm:p-6"><EmptyState icon={Braces} title="Project studio pending" detail="The split visual and YAML editor will be implemented after run operations." /></div></>;
+  return <><PageHeader index="05A" title="Project studio" description="Visual survey policy and canonical YAML for discovery, metadata, graph preparation, and execution." /><Suspense fallback={<div className="grid min-h-72 place-items-center text-xs text-[var(--bp-muted)]">[ loading project studio ]</div>}><ProjectStudio /></Suspense></>;
 }

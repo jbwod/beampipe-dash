@@ -210,6 +210,16 @@ export interface ProjectListItem {
   active: boolean;
 }
 
+export interface ProjectConfigRow {
+  uuid: string;
+  project_id: string;
+  version: number;
+  spec: unknown;
+  spec_sha256: string;
+  active: boolean;
+  uploaded_at: string;
+}
+
 export interface ValidationDiagnostic {
   severity?: string;
   code?: string;
