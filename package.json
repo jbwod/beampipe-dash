@@ -14,7 +14,8 @@
     "visual:check": "node scripts/capture-dashboard.mjs",
     "studio:check": "node scripts/check-project-studio.mjs",
     "profiles:check": "node scripts/check-profiles.mjs",
-    "sources:check": "node scripts/check-sources.mjs"
+    "sources:check": "node scripts/check-sources.mjs",
+    "composer:check": "node scripts/check-run-composer.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
+import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { DataTable, TableFrame, TableHead, Td, Th } from "@/shared/components/data-table";
 import { EmptyRows, LiveIndicator, QueryFailure } from "@/shared/components/operator-ui";
@@ -32,6 +33,7 @@ export function RunsView() {
 
   return (
     <div className="p-4 sm:p-6">
+      <div className="mb-4 flex justify-end"><Link className="inline-flex h-9 items-center gap-2 border border-[var(--bp-green)]/60 px-3 text-[10px] uppercase text-[var(--bp-green)] hover:bg-[var(--bp-green)]/10" href={"/runs/new" as Route}><Plus className="size-3" />Compose run</Link></div>
       <div className="mb-4 grid gap-2 border border-[var(--bp-border)] bg-[var(--bp-panel)] p-2 sm:grid-cols-[minmax(180px,1fr)_180px_180px_auto]">
         <label className="min-w-0"><span className="sr-only">Search runs</span><input className="h-9 w-full border border-[var(--bp-border-soft)] bg-black px-3 text-xs placeholder:text-[var(--bp-subtle)]" onChange={(event) => setSearch(event.target.value)} placeholder="filter by run, session, scheduler id..." value={search} /></label>
         <label><span className="sr-only">Project</span><select className="h-9 w-full border border-[var(--bp-border-soft)] bg-black px-2 text-xs" onChange={(event) => setProject(event.target.value)} value={project}><option value="">all projects</option>{projects.data?.map((item) => <option key={item.project_id} value={item.project_id}>{item.project_id}</option>)}</select></label>

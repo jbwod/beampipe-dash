@@ -120,6 +120,26 @@ export interface ExecutionSummary {
   last_error: string | null;
 }
 
+export interface ExecutionCreatePayload {
+  project_module: string;
+  sources: Array<{ source_identifier: string; sbids?: string[] }>;
+  archive_name: string;
+  deployment_profile_id?: string | null;
+  deployment_profile_name?: string | null;
+}
+
+export interface ExecutionPrepareResponse {
+  project_module: string;
+  valid: boolean;
+  errors: string[];
+  total_datasets: number;
+  sources_preview: Array<{
+    source_identifier: string;
+    sbid_count: number;
+    dataset_count: number;
+  }>;
+}
+
 export interface ProvenanceEvent {
   id: string;
   occurred_at: string;

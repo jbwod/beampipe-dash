@@ -2,7 +2,9 @@
 
 import { Tabs } from "@base-ui/react/tabs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Radar, Rocket, X } from "lucide-react";
+import { Play, Plus, Radar, Rocket, X } from "lucide-react";
+import Link from "next/link";
+import type { Route } from "next";
 import { useMemo, useState } from "react";
 import { ActionDialog } from "@/shared/components/action-dialog";
 import { dashboardFetch } from "@/shared/lib/http";
@@ -28,6 +30,10 @@ export function SourceActions({ projects, selected }: { projects: ProjectListIte
     (grouped[source.project_module] ??= []).push(source.source_identifier);
     return grouped;
   }, {}), [selected]);
+  const selectedProjects = Object.keys(selectedByProject);
+  const composeHref = selectedProjects.length === 1
+    ? `/runs/new?project=${encodeURIComponent(selectedProjects[0])}&sources=${encodeURIComponent(selectedByProject[selectedProjects[0]].join(","))}`
+    : null;
 
   const register = useMutation({
     mutationFn: () => dashboardFetch<SourceBulkCreateResponse>("/api/beampipe/sources/bulk", { method: "POST", body: JSON.stringify({ items: sourceIdentifiers.map((source_identifier) => ({ project_module: effectiveProject, source_identifier, enabled: true })) }) }),
@@ -70,6 +76,7 @@ export function SourceActions({ projects, selected }: { projects: ProjectListIte
     <div className="flex flex-wrap items-center gap-2">
       <button className="inline-flex h-8 items-center gap-2 border border-[var(--bp-green)]/60 px-2 text-[10px] uppercase text-[var(--bp-green)]" onClick={() => setRegisterOpen(true)} type="button"><Plus className="size-3" />Register</button>
       <button className="inline-flex h-8 items-center gap-2 border border-[var(--bp-cyan)]/60 px-2 text-[10px] uppercase text-[var(--bp-cyan)] disabled:opacity-40" disabled={!selected.length} onClick={() => { setDiscoverScope("selected"); setDiscoverOpen(true); }} type="button"><Radar className="size-3" />Discover selected</button>
+      {composeHref ? <Link className="inline-flex h-8 items-center gap-2 border border-[var(--bp-green)]/60 px-2 text-[10px] uppercase text-[var(--bp-green)]" href={composeHref as Route}><Play className="size-3" />Compose run</Link> : null}
       {currentUser.data?.is_superuser ? <button aria-label="Run workflow admission" className="grid size-8 place-items-center border border-[var(--bp-amber)]/60 text-[var(--bp-amber)]" onClick={() => setSchedulerOpen(true)} title="Run workflow admission" type="button"><Rocket className="size-3.5" /></button> : null}
     </div>
     {result ? <p className="mt-2 text-right text-[10px] uppercase text-[var(--bp-green)]">+ {result}</p> : null}
