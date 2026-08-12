@@ -237,6 +237,101 @@ export interface ValidationReport {
   [key: string]: unknown;
 }
 
+export interface DaliugeTranslationConfig {
+  algo: "metis" | "mysarkar";
+  num_par: number;
+  num_islands: number;
+  tm_url?: string | null;
+}
+
+export interface RestRemoteDeployment {
+  kind: "rest_remote";
+  dim_host_for_tm?: string | null;
+  dim_port_for_tm?: number | null;
+  deploy_host: string;
+  deploy_port?: number | null;
+  use_https: boolean;
+  verify_ssl: boolean;
+}
+
+export interface SlurmResourceConfig {
+  partition?: string | null;
+  nodes?: number | null;
+  tasks?: number | null;
+  cpus_per_task?: number | null;
+  memory?: string | null;
+  wall_time_minutes?: number | null;
+  constraint?: string | null;
+  quality_of_service?: string | null;
+}
+
+export interface DaliugeManagerTopologyConfig {
+  nodes?: number | null;
+  islands?: number | null;
+  co_host_dim: boolean;
+}
+
+export interface SlurmRemoteDeployment {
+  kind: "slurm_remote";
+  login_node: string;
+  ssh_port: number;
+  remote_user?: string | null;
+  account: string;
+  home_dir: string;
+  log_dir: string;
+  exec_prefix: string;
+  dlg_root: string;
+  venv?: string | null;
+  modules?: string | null;
+  facility: string;
+  job_duration_minutes: number;
+  num_nodes: number;
+  num_islands: number;
+  verbose_level: number;
+  max_threads: number;
+  all_nics: boolean;
+  zerorun: boolean;
+  sleepncopy: boolean;
+  check_with_session: boolean;
+  verify_ssl?: boolean | null;
+  slurm_template?: string | null;
+  resources: SlurmResourceConfig;
+  manager_topology: DaliugeManagerTopologyConfig;
+  container_runtime?: string | null;
+  environment_setup?: string | null;
+}
+
+export interface DeploymentProfile {
+  name: string;
+  description?: string | null;
+  project_module?: string | null;
+  is_default: boolean;
+  max_concurrent_executions?: number | null;
+  translation: DaliugeTranslationConfig;
+  deployment: RestRemoteDeployment | SlurmRemoteDeployment;
+}
+
+export interface DeploymentProfileResponse extends DeploymentProfile {
+  uuid: string;
+  revision: number;
+  spec_sha256?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface DaliugeInspectResponse {
+  profile: string | null;
+  translator: unknown;
+  manager: unknown | null;
+}
+
+export interface SchedulerStatusResponse {
+  profile: string;
+  connectivity: unknown;
+  resource_request: unknown;
+  rendered_resource_request: string;
+}
+
 export interface Worker {
   id: string;
   instance_name: string;

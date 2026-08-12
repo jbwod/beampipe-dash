@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "visual:check": "node scripts/capture-dashboard.mjs",
-    "studio:check": "node scripts/check-project-studio.mjs"
+    "studio:check": "node scripts/check-project-studio.mjs",
+    "profiles:check": "node scripts/check-profiles.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
