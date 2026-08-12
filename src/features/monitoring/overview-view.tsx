@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
+import { Braces, Play, RadioTower, ServerCog } from "lucide-react";
 import { Bar, EmptyRows, LiveIndicator, LoadingRows, MetricCell, QueryFailure, SectionHeading } from "@/shared/components/operator-ui";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { formatAge, formatSeconds, shortId } from "@/shared/lib/time";
@@ -26,6 +27,16 @@ export function OverviewView() {
         <p className="text-[10px] uppercase text-[var(--bp-subtle)]">Generated {formatAge(overview.data?.generated_at)}</p>
         <LiveIndicator fetching={fetching} />
       </div>
+
+      <section className="mb-4 border border-[var(--bp-border)]">
+        <SectionHeading title="Launchpad" />
+        <div className="grid divide-y divide-[var(--bp-border-soft)] sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
+          <LaunchAction href="/projects/new" icon={<Braces className="size-4" />} index="01" label="Project policy" value="YAML + visual" />
+          <LaunchAction href="/profiles" icon={<ServerCog className="size-4" />} index="02" label="Deployment target" value="REST / Slurm" />
+          <LaunchAction href="/sources" icon={<RadioTower className="size-4" />} index="03" label="Source registry" value={`${overview.data?.registered_sources ?? "--"} registered`} />
+          <LaunchAction href="/runs/new" icon={<Play className="size-4" />} index="04" label="Compose run" value={`${overview.data?.pending_admissions ?? "--"} pending`} />
+        </div>
+      </section>
 
       <section className="mb-4 border border-[var(--bp-border)]">
         <SectionHeading title="Control plane" detail="readiness and external dependencies" />
@@ -112,4 +123,8 @@ export function OverviewView() {
 
 function Dependency({ name, status }: { name: string; status: string }) {
   return <div className="flex min-h-14 min-w-0 items-center justify-between gap-2 px-3"><span className="truncate text-[10px] uppercase text-[var(--bp-subtle)]">{name}</span><StatusBadge status={status} /></div>;
+}
+
+function LaunchAction({ href, icon, index, label, value }: { href: string; icon: React.ReactNode; index: string; label: string; value: string }) {
+  return <Link className="group flex min-h-16 min-w-0 items-center gap-3 px-3 py-3 hover:bg-[var(--bp-panel-soft)]" href={href as Route}><span className="text-[var(--bp-cyan)]">{icon}</span><span className="min-w-0"><span className="block text-[9px] uppercase text-[var(--bp-subtle)]">{index}</span><span className="block truncate text-xs text-[var(--bp-highlight)] group-hover:text-[var(--bp-cyan)]">{label}</span></span><span className="ml-auto truncate text-[10px] text-[var(--bp-muted)]">{value}</span></Link>;
 }

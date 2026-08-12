@@ -5,7 +5,7 @@ import { LogOut, RadioTower } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { adminNavigation, navigation } from "./navigation";
+import { navigation } from "./navigation";
 import { cn } from "@/shared/lib/cn";
 import { dashboardFetch } from "@/shared/lib/http";
 
@@ -32,9 +32,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <div className="grid min-h-dvh place-items-center text-xs text-[var(--bp-muted)]">[ session expired ]</div>;
   }
 
-  const items = session.data?.is_superuser
-    ? [...navigation, ...adminNavigation]
-    : navigation;
+  const items = navigation;
 
   return (
     <div className="min-h-dvh bg-[var(--bp-bg)]">

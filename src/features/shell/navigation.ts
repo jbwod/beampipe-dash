@@ -6,7 +6,6 @@ import {
   Gauge,
   RadioTower,
   ServerCog,
-  UsersRound,
   Workflow,
 } from "lucide-react";
 
@@ -20,5 +19,3 @@ export const navigation = [
   { href: "/workers", label: "Workers", icon: Boxes },
   { href: "/system", label: "System", icon: Database },
 ] as const;
-
-export const adminNavigation = [{ href: "/users", label: "Users", icon: UsersRound }] as const;
