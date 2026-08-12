@@ -29,6 +29,16 @@ export async function dashboardFetch<T>(path: string, init?: RequestInit): Promi
   return parsed as T;
 }
 
+export function safeExternalUrl(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function safeJson(value: string): unknown {
   try {
     return JSON.parse(value);

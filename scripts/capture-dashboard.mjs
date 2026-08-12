@@ -7,7 +7,10 @@ const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 });
-const routes = ["overview", "runs", "jobs", "sources", "projects", "workers", "system"];
+const routes = (process.env.BEAMPIPE_DASH_ROUTES ?? "overview,runs,jobs,sources,projects,workers,system")
+  .split(",")
+  .map((route) => route.trim())
+  .filter(Boolean);
 
 for (const viewport of [
   { name: "desktop", width: 1440, height: 1000 },
@@ -21,7 +24,8 @@ for (const viewport of [
     await page.locator("h1").waitFor();
     if (route === "overview" && expectedText) await page.getByText(expectedText, { exact: true }).first().waitFor();
     await page.waitForTimeout(250);
-    await page.screenshot({ path: `${outputDir}/beampipe-dash-${route}-${viewport.name}.png`, fullPage: false });
+    const name = route.replaceAll("/", "-");
+    await page.screenshot({ path: `${outputDir}/beampipe-dash-${name}-${viewport.name}.png`, fullPage: false });
     const dimensions = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,

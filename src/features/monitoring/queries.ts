@@ -6,9 +6,15 @@ import type {
   DiagnosticsResponse,
   CurrentUser,
   Execution,
+  ExecutionArtifact,
+  ExecutionObservation,
+  ExecutionStatusDetail,
+  ExecutionSummary,
+  LedgerSnapshot,
   OperatorOverview,
   PaginatedExecutions,
   ProjectListItem,
+  ProvenanceEvent,
   ReadyStatus,
   SchedulerJob,
   SourceRegistryRow,
@@ -50,6 +56,30 @@ export function useExecution(id: string) {
     queryFn: () => dashboardFetch<Execution>(`/api/beampipe/executions/${id}`),
     refetchInterval: (query) => isTerminal((query.state.data as Execution | undefined)?.status) ? false : LIVE,
   });
+}
+
+export function useExecutionStatus(id: string) {
+  return useQuery({ queryKey: ["execution-status", id], queryFn: () => dashboardFetch<ExecutionStatusDetail>(`/api/beampipe/executions/${id}/status`), refetchInterval: LIVE });
+}
+
+export function useExecutionSummary(id: string) {
+  return useQuery({ queryKey: ["execution-summary", id], queryFn: () => dashboardFetch<ExecutionSummary>(`/api/beampipe/executions/${id}/summary`), refetchInterval: 10_000 });
+}
+
+export function useExecutionEvents(id: string) {
+  return useQuery({ queryKey: ["execution-events", id], queryFn: () => dashboardFetch<ProvenanceEvent[]>(`/api/beampipe/executions/${id}/events`), refetchInterval: LIVE });
+}
+
+export function useExecutionObservations(id: string) {
+  return useQuery({ queryKey: ["execution-observations", id], queryFn: () => dashboardFetch<ExecutionObservation[]>(`/api/beampipe/executions/${id}/observations?limit=200`), refetchInterval: LIVE });
+}
+
+export function useExecutionArtifacts(id: string) {
+  return useQuery({ queryKey: ["execution-artifacts", id], queryFn: () => dashboardFetch<ExecutionArtifact[]>(`/api/beampipe/executions/${id}/artifacts`), refetchInterval: 15_000 });
+}
+
+export function useLedgerSnapshot(id: string) {
+  return useQuery({ queryKey: ["execution-ledger", id], queryFn: () => dashboardFetch<LedgerSnapshot>(`/api/beampipe/executions/${id}/ledger-snapshot?include_manifest=true`), refetchInterval: LIVE });
 }
 
 export function useSources(project?: string) {

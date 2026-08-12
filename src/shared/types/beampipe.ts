@@ -57,7 +57,124 @@ export interface Execution {
   last_reconciled_at: string | null;
   deployment_profile_id: string | null;
   project_config_version: number | null;
+  deployment_profile_revision?: number | null;
+  project_config_id?: string | null;
+  discovery_signature?: string | null;
+  manifest_sha256?: string | null;
+  source_graph_sha256?: string | null;
+  patched_graph_sha256?: string | null;
+  physical_graph_sha256?: string | null;
+  submission_state?: string | null;
+  phase_timestamps?: unknown;
+  workflow_manifest?: unknown;
+  beampipe_run_record?: unknown;
+  remote_session_dir?: string | null;
+  dim_session_status_url?: string | null;
+  dim_graph_status_url?: string | null;
+  slurm_login_node?: string | null;
+  slurm_remote_user?: string | null;
+  slurm_session_dir?: string | null;
   [key: string]: unknown;
+}
+
+export interface ExecutionStatusDetail {
+  uuid: string;
+  status: string;
+  execution_phase: string | null;
+  control_phase: string | null;
+  submission_state: string | null;
+  scheduler_name: string | null;
+  scheduler_job_id: string | null;
+  scheduler_state: string | null;
+  scheduler_raw_state: string | null;
+  scheduler_reason: string | null;
+  daliuge_session_id: string | null;
+  daliuge_state: string | null;
+  output_state: string | null;
+  terminal_outcome: string | null;
+  failure_class: string | null;
+  last_error: string | null;
+  retry_count: number;
+  started_at: string | null;
+  completed_at: string | null;
+  slurm_state: string | null;
+  dim_state: string | null;
+  last_observation_at: string | null;
+  duration_seconds: number | null;
+}
+
+export interface ExecutionSummary {
+  uuid: string;
+  project_module: string;
+  archive_name: string;
+  status: string;
+  requested_source_count: number;
+  requested_source_identifiers: string[];
+  scheduler_name: string | null;
+  scheduler_job_id: string | null;
+  daliuge_session_id: string | null;
+  control_phase: string | null;
+  scheduler_state: string | null;
+  daliuge_state: string | null;
+  terminal_outcome: string | null;
+  last_error: string | null;
+}
+
+export interface ProvenanceEvent {
+  id: string;
+  occurred_at: string;
+  event_type: string;
+  project_module: string;
+  source_identifier: string | null;
+  execution_id: string | null;
+  actor: string | null;
+  correlation_id: string | null;
+  payload: unknown;
+}
+
+export interface ExecutionObservation {
+  uuid: string;
+  execution_id: string;
+  kind: string;
+  normalized_state: string;
+  raw_state: string | null;
+  reason: string | null;
+  source_version: string | null;
+  payload: unknown;
+  observed_at: string;
+}
+
+export interface ExecutionArtifact {
+  uuid: string;
+  execution_id: string;
+  kind: string;
+  storage_kind: string;
+  media_type: string;
+  sha256: string;
+  size_bytes: number | null;
+  producer_phase: string;
+  uri: string | null;
+  inline_json: unknown;
+  metadata: unknown;
+  created_at: string;
+}
+
+export interface LedgerSnapshot {
+  uuid: string;
+  status: string;
+  execution_phase: string | null;
+  scheduler_name: string | null;
+  scheduler_job_id: string | null;
+  correlation_id?: string;
+  active_job_id?: string;
+  workflow_manifest?: unknown;
+  last_error: string | null;
+  run_record_phases: unknown;
+  provenance_summary: {
+    config_version: number | null;
+    discovery_signature: string | null;
+    recent_events: ProvenanceEvent[];
+  };
 }
 
 export interface PaginatedExecutions {

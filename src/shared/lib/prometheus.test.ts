@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { safeExternalUrl } from "./http";
 import { metricByLabel, parsePrometheus, summarizeApiTraffic } from "./prometheus";
 
 const fixture = `
@@ -22,5 +23,13 @@ describe("Prometheus parsing", () => {
     expect(summary.serverErrors).toBe(1);
     expect(summary.averageDurationSeconds).toBe(0.2);
     expect(summary.routes[0]).toEqual({ route: "/api/v2/overview", requests: 13, serverErrors: 1 });
+  });
+});
+
+describe("external URL policy", () => {
+  it("allows HTTP operator links and rejects unsafe schemes", () => {
+    expect(safeExternalUrl("https://manager.example/sessions/123")).toBe("https://manager.example/sessions/123");
+    expect(safeExternalUrl("javascript:alert(1)")).toBeNull();
+    expect(safeExternalUrl("file:///private/key")).toBeNull();
   });
 });
