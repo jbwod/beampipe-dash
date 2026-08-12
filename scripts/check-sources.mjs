@@ -1,4 +1,7 @@
 import { chromium } from "@playwright/test";
+import { confirmMutatingE2E } from "./confirm-e2e.mjs";
+
+confirmMutatingE2E();
 
 const baseUrl = process.env.BEAMPIPE_DASH_URL ?? "http://127.0.0.1:3100";
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });

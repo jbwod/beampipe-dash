@@ -1,0 +1,18 @@
+name: beampipe-dash
+
+services:
+  dashboard:
+    image: beampipe-dash:local
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_EAGLE_URL: ${NEXT_PUBLIC_EAGLE_URL:-https://eagle.icrar.org}
+    environment:
+      BEAMPIPE_API_URL: ${BEAMPIPE_API_URL:-http://host.docker.internal:8080}
+      BEAMPIPE_DASH_SECURE_COOKIES: ${BEAMPIPE_DASH_SECURE_COOKIES:-false}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - ${BEAMPIPE_DASH_PORT:-3000}:3000
+    init: true
+    restart: unless-stopped
