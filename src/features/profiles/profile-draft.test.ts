@@ -6,10 +6,12 @@ describe("deployment profile drafts", () => {
     expect(validateDeploymentProfile(createDeploymentProfile("rest_remote"))).toEqual([]);
   });
 
-  it("defaults a new Slurm profile to the setonix credential slot", () => {
+  it("does not default a new Slurm profile to a facility-specific credential slot", () => {
     const profile = createDeploymentProfile("slurm_remote");
     if (profile.deployment.kind !== "slurm_remote") throw new Error("expected Slurm profile");
-    expect(profile.deployment.ssh_credential).toBe("setonix");
+    expect(profile.deployment.ssh_credential).toBeNull();
+    expect(profile.deployment.facility).toBe("");
+    expect(profile.deployment.login_node).toBe("");
   });
 
   it("switches backends without dropping shared translation policy", () => {

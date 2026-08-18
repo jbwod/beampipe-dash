@@ -1,3 +1,7 @@
+# Overlay for Dash on the same Docker engine as Core.
+# `scripts/install.sh` and `beampipe setup --dashboard` replace `name:` with the
+# live Core network (operator installs are usually `beampipe_default`; a git
+# checkout compose project is often `beampipe-core-v2_default`).
 services:
   dashboard:
     environment:

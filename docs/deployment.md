@@ -15,7 +15,7 @@ Build once, then run the production server:
 ```bash
 npm ci
 npm run build
-BEAMPIPE_API_URL=http://127.0.0.1:8080 \
+BEAMPIPE_API_URL=http://127.0.0.1:18080 \
 BEAMPIPE_DASH_SECURE_COOKIES=false \
 npm start
 ```
@@ -25,24 +25,11 @@ For a service manager, set `NODE_ENV=production`, `PORT`, `BEAMPIPE_API_URL`, an
 ## Docker Compose
 
 ```bash
-docker compose up --build -d
+./scripts/install.sh --core-home ~/beampipe
 docker compose ps
 ```
 
-Defaults:
-
-```text
-dashboard URL       http://127.0.0.1:3000
-Beampipe API URL    http://host.docker.internal:8080
-```
-
-`extra_hosts` supplies the Linux `host-gateway` mapping. This also works when the Beampipe Compose stack publishes API port `8080` on the host.
-
-When both services share a Docker network, set the internal service URL instead:
-
-```bash
-BEAMPIPE_API_URL=http://api:8080 docker compose up -d --force-recreate
-```
+The installer writes `compose.beampipe-local.yml` so Dash joins Core's Compose network (`http://api:8080`) and publishes the UI on `127.0.0.1:3000`. Without that overlay, base `compose.yaml` uses `host.docker.internal` and the host API port (operator default **18080**).
 
 The dashboard image runs as UID/GID `1001`, uses Next.js standalone output, and exposes a container health check at `/api/health`.
 

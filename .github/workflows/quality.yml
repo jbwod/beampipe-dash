@@ -16,6 +16,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - run: sh scripts/test-install.sh
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck

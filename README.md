@@ -77,37 +77,23 @@ API URL: server-side only</code></pre>
 
 ## `First-time setup`
 
-Start Core first (`beampipe`). Then:
+Start Core first (`beampipe`). Then install Dash; the script finds Core's home, Compose network, and API port:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jbwod/beampipe-dash/main/scripts/install.sh | sh
+```
+
+Or from a checkout:
 
 ```bash
 git clone https://github.com/jbwod/beampipe-dash.git
 cd beampipe-dash
-test -e .env || cp .env.example .env
+./scripts/install.sh --core-home ~/beampipe
 ```
 
-**Same Docker engine as Core** attach Dash to Core's private network so the browser never reaches the API:
+That writes `compose.beampipe-local.yml` with `BEAMPIPE_API_URL=http://api:8080` on Core's private network (operator installs are usually `beampipe_default`) and starts the UI on [http://127.0.0.1:3000](http://127.0.0.1:3000). `beampipe setup --dashboard` runs the same installer after Core is up.
 
-```bash
-docker compose -f compose.yaml -f compose.beampipe-local.yml up --build -d
-```
-
-```yaml
-# compose.beampipe-local.yml
-services:
-  dashboard:
-    environment:
-      BEAMPIPE_API_URL: http://api:8080
-    ports: !override
-      - "127.0.0.1:3000:3000"
-    networks: [default, beampipe-core]
-
-networks:
-  beampipe-core:
-    external: true
-    name: beampipe-core-v2_default
-```
-
-**Native Next.js** — Core must already serve `/api/v2` on the host:
+**Native Next.js** — Core must already serve `/api/v2` on the host (operator default **18080**):
 
 ```bash
 cp .env.example .env.local

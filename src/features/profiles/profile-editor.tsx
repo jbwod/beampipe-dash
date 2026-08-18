@@ -58,20 +58,20 @@ function SlurmConnectionEditor({ deployment, onChange }: { deployment: SlurmRemo
     <>
       <ProfileSection title="SSH target">
         <ProfileGrid columns={4}>
-          <ProfileTextField label="Login node" onChange={(value) => set("login_node", value)} placeholder="setonix.pawsey.org.au" value={deployment.login_node} />
+          <ProfileTextField label="Login node" onChange={(value) => set("login_node", value)} placeholder="login.example.org" value={deployment.login_node} />
           <ProfileNumberField label="SSH port" max={65_535} min={1} onChange={(value) => set("ssh_port", value ?? 22)} value={deployment.ssh_port} />
           <ProfileTextField label="Remote user" onChange={(value) => set("remote_user", value || null)} value={deployment.remote_user} />
           <ProfileTextField label="Facility" onChange={(value) => set("facility", value)} value={deployment.facility} />
         </ProfileGrid>
       </ProfileSection>
       <ProfileSection
-        detail="Names the Core credential directory only. Dash never accepts the private key or passphrase. Create files with `beampipe slurm credentials init --slot setonix`. Passphrase-locked keys use a 0600 passphrase file beside private_key."
+        detail="Names the Core credential directory only; it is not a hostname. Dash never stores keys. Generate with `beampipe slurm credentials init --slot SLOT --host LOGIN_NODE`, then install private_key.pub (`copy-id` or the site process). Import an existing key and skip the upload if authorized_keys already has it. Passphrase-locked keys use a 0600 passphrase file beside private_key."
         title="SSH credential slot"
       >
         <ProfileTextField
           label="Credential slot"
           onChange={(value) => set("ssh_credential", value || null)}
-          placeholder="setonix"
+          placeholder="hpc"
           value={deployment.ssh_credential}
         />
         <p className="mt-3 font-mono text-[10px] leading-5 text-[var(--bp-muted)]">

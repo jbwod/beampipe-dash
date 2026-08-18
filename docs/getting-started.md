@@ -14,7 +14,7 @@ beampipe start
 Keep that terminal open. Confirm the API from a second terminal:
 
 ```bash
-curl -fsS http://127.0.0.1:8080/api/v2/health
+curl -fsS http://127.0.0.1:18080/api/v2/health
 ```
 
 Expected status is HTTP `200` with a healthy Beampipe service response.
@@ -35,22 +35,29 @@ Prefer interactive `beampipe setup` on shared systems so a password is not retai
 
 ## 2. Start the dashboard
 
+Prefer the installer, which detects Core and starts Compose:
+
 ```bash
-git clone <beampipe-dash-repository-url>
-cd beampipe-dash
-cp .env.example .env.local
-npm ci
-npm run dev -- --hostname 127.0.0.1 --port 3000
+curl -fsSL https://raw.githubusercontent.com/jbwod/beampipe-dash/main/scripts/install.sh | sh
+# or from a checkout:
+./scripts/install.sh --core-home ~/beampipe
 ```
 
-The default `.env.example` points to `http://127.0.0.1:8080`.
-
 ```text
-Beampipe API  http://127.0.0.1:8080
+Beampipe API  http://127.0.0.1:18080  (host publish; containers use http://api:8080)
 Dashboard     http://127.0.0.1:3000
 ```
 
-Open the dashboard URL and sign in. The browser never connects directly to port `8080`.
+Open the dashboard URL and sign in. The browser never connects directly to Core.
+
+For a native Next.js process during development:
+
+```bash
+cp .env.example .env.local
+# BEAMPIPE_API_URL=http://127.0.0.1:18080
+npm ci
+npm run dev -- --hostname 127.0.0.1 --port 3000
+```
 
 ## 3. Confirm readiness
 
