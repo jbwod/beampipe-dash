@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { LogOut, RadioTower } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import type { Route } from "next";
 import { useEffect } from "react";
 import { navigation } from "./navigation";
 import { cn } from "@/shared/lib/cn";
@@ -75,7 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     "hover:border-[var(--bp-border-soft)] hover:bg-black hover:text-[var(--bp-text)]",
                     active && "border-[var(--bp-border)] bg-black text-[var(--bp-cyan)]",
                   )}
-                  href={href}
+                  href={href as Route}
                   key={href}
                 >
                   <span className="w-5 tabular-nums text-[10px] text-[var(--bp-subtle)]">

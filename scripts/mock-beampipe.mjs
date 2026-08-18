@@ -1,6 +1,8 @@
 import http from "node:http";
 
 const now = Date.now();
+const mockHost = process.env.BEAMPIPE_MOCK_HOST ?? "127.0.0.1";
+const mockPort = Number.parseInt(process.env.BEAMPIPE_MOCK_PORT ?? "18080", 10);
 const iso = (offset = 0) => new Date(now + offset).toISOString();
 const run = (id, project, status, phase, minutes, backend = null) => ({
   uuid: id,
@@ -102,6 +104,14 @@ const projectRows = [{ uuid: "019b37af-b000-7000-8000-000000000003", project_id:
 const restProfile = { uuid: "019b37af-c000-7000-8000-000000000001", name: "rest-local", description: "Local DALiuGE development cluster", project_module: "wallaby_hires", is_default: true, max_concurrent_executions: 4, revision: 4, spec_sha256: "5cc40f0b1e5e93a2", translation: { algo: "metis", num_par: 1, num_islands: 0, tm_url: "http://host.docker.internal:8084" }, deployment: { kind: "rest_remote", dim_host_for_tm: "host.docker.internal", dim_port_for_tm: 8001, deploy_host: "host.docker.internal", deploy_port: 8001, use_https: false, verify_ssl: true }, created_at: iso(-604_800_000), updated_at: iso(-86_400_000) };
 const slurmProfile = { uuid: "019b37af-c000-7000-8000-000000000002", name: "setonix", description: "WALLABY HiRes production scheduler", project_module: "wallaby_hires", is_default: false, max_concurrent_executions: 12, revision: 7, spec_sha256: "813e41b0042df8b0", translation: { algo: "metis", num_par: 1, num_islands: 1, tm_url: "http://dlg-tm.internal:8084" }, deployment: { kind: "slurm_remote", login_node: "setonix.pawsey.org.au", ssh_port: 22, remote_user: "beampipe", account: "pawsey0411", home_dir: "/scratch/pawsey0411", log_dir: "/scratch/pawsey0411/beampipe/logs", exec_prefix: "srun -l", dlg_root: "/scratch/pawsey0411/beampipe/dlg", venv: "source /software/projects/pawsey0411/beampipe/bin/activate", modules: "module load singularity/4.1.0-askap", facility: "setonix", job_duration_minutes: 50, num_nodes: 1, num_islands: 1, verbose_level: 1, max_threads: 0, all_nics: false, zerorun: false, sleepncopy: false, check_with_session: false, verify_ssl: true, slurm_template: null, resources: { partition: "work", nodes: 2, tasks: 2, cpus_per_task: 8, memory: "64G", wall_time_minutes: 50, constraint: null, quality_of_service: null }, manager_topology: { nodes: 1, islands: 1, co_host_dim: false }, container_runtime: "singularity", environment_setup: null }, created_at: iso(-1_209_600_000), updated_at: iso(-43_200_000) };
 const deploymentProfiles = [restProfile, slurmProfile];
+const slackChannel = { uuid: "019b37af-d100-7000-8000-000000000001", name: "ops-slack", kind: "webhook", config: { url: "https://hooks.slack.com/services/T000/B000/mock", template: "slack" }, secret_fields: [], configured_fields: ["url", "template"], enabled: true, created_at: iso(-86_400_000), updated_at: iso(-3_600_000) };
+const alertRule = { uuid: "019b37af-d200-7000-8000-000000000001", name: "exec-fail", project_module: "wallaby_hires", enabled: true, severity: "critical", trigger_kind: "execution_terminal", trigger_config: {}, channel_ids: [slackChannel.uuid], cooldown_minutes: 15, last_fired_at: iso(-1_800_000), created_at: iso(-86_400_000), updated_at: iso(-3_600_000) };
+const alertDeliveries = [
+  { uuid: "019b37af-d300-7000-8000-000000000001", rule_id: alertRule.uuid, channel_id: slackChannel.uuid, status: "sent", payload: { alert: "execution.failed", severity: "critical", project_module: "wallaby_hires", summary: "Execution 019b37af failed: DIM deployment did not reach a terminal success state" }, error: null, created_at: iso(-1_800_000) },
+  { uuid: "019b37af-d300-7000-8000-000000000002", rule_id: null, channel_id: slackChannel.uuid, status: "failed", payload: { alert: "test", severity: "info", project_module: "test", summary: "Beampipe test notification" }, error: "HTTP 404", created_at: iso(-600_000) },
+];
+const notificationChannels = [slackChannel];
+const alertRules = [alertRule];
 
 const json = (response, body, status = 200) => {
   response.writeHead(status, { "content-type": "application/json" });
@@ -115,8 +125,12 @@ const readJson = async (request) => {
 };
 
 http.createServer(async (request, response) => {
-  const url = new URL(request.url, "http://127.0.0.1:18080");
+  const url = new URL(request.url, `http://${mockHost}:${mockPort}`);
   const path = url.pathname;
+  if (path === "/api/v2/health") return json(response, { status: "ok", service: "beampipe-v2" });
+  if (path === "/api/v2/login" && request.method === "POST") return json(response, { access_token: "mock-access-token", refresh_token: "mock-refresh-token", token_type: "bearer" });
+  if (path === "/api/v2/refresh" && request.method === "POST") return json(response, { access_token: "mock-access-token-refreshed", refresh_token: "mock-refresh-token-refreshed", token_type: "bearer" });
+  if (path === "/api/v2/logout" && request.method === "POST") return json(response, { logged_out: true });
   if (path === "/api/v2/user/me") return json(response, { username: "operator", name: "Demo Operator", email: "operator@example.test", is_superuser: true });
   if (path === "/api/v2/overview") return json(response, { generated_at: iso(), registered_sources: 4, pending_admissions: 1, running_executions: 2, failed_executions: 1, queue_depth: 5, active_workers: 3, stale_workers: 1, recent_alerts: 2, casda: "configured", daliuge: "configured", scheduler: "configured" });
   if (path === "/api/v2/ready") return json(response, { status: "ready", service: "beampipe-v2", database: "ok", redis: "disabled", tap_casda: "ok", tap_vizier: "ok", queue_depth: 5, jobs_running: 2 });
@@ -191,9 +205,49 @@ http.createServer(async (request, response) => {
   if (path === "/api/v2/workers/leases") return json(response, [{ job_id: "019b37af-2000-7000-8000-000000000001", kind: "execute", execution_id: runs[0].uuid, worker_id: "019b37af-1000-7000-8000-000000000001", claim_id: "019b37af-3000-7000-8000-000000000001", pool: "default", required_capability: "execute", attempts: 1, lease_expires_at: iso(60_000), heartbeat_at: iso(-3_000) }, { job_id: "019b37af-2000-7000-8000-000000000002", kind: "slurm_poll", execution_id: runs[1].uuid, worker_id: "019b37af-1000-7000-8000-000000000002", claim_id: "019b37af-3000-7000-8000-000000000002", pool: "slurm", required_capability: "slurm_poll", attempts: 3, lease_expires_at: iso(45_000), heartbeat_at: iso(-4_000) }]);
   if (path === "/api/v2/scheduler/jobs") return json(response, [{ execution_id: runs[1].uuid, project_module: "wallaby_hires", execution_status: "awaiting_scheduler", scheduler_job_id: "784201", scheduler_state: "running", scheduler_raw_state: "RUNNING", scheduler_reason: "Resources", daliuge_session_id: null, remote_session_dir: "/scratch/demo/784201", submitted_at: runs[1].created_at, last_reconciled_at: iso(-12_000) }]);
   if (path === "/api/v2/diagnostics") return json(response, { healthy: false, generated_at: iso(), diagnostics: [{ path: "workers.heartbeat", severity: "warning", code: "workers.stale", message: "1 Beampipe worker heartbeat is stale", hint: "inspect the worker instance and drain it before replacing the process" }, { path: "executions.reconciliation", severity: "warning", code: "reconciliation.operator_attention", message: "1 execution has uncertain external state", hint: "inspect the execution ledger before retrying or resubmitting" }] });
+  if (path === "/api/v2/notification-channels" && request.method === "GET") return json(response, notificationChannels);
+  if (path === "/api/v2/notification-channels" && request.method === "POST") {
+    const payload = await readJson(request);
+    const created = { uuid: "019b37af-d100-7000-8000-000000000003", name: payload.name ?? "new-channel", kind: payload.kind ?? "webhook", config: { ...(payload.config ?? {}), url: payload.config?.url ? "https://hooks.example.test/redacted" : undefined, template: payload.config?.template ?? "generic" }, secret_fields: payload.config?.url ? [] : [], configured_fields: Object.keys(payload.config ?? {}), enabled: payload.enabled !== false, created_at: iso(), updated_at: null };
+    notificationChannels.push(created);
+    return json(response, created, 201);
+  }
+  const channelMatch = path.match(/^\/api\/v2\/notification-channels\/([^/]+)(?:\/(test))?$/);
+  if (channelMatch) {
+    const channel = notificationChannels.find((item) => item.uuid === channelMatch[1]) ?? slackChannel;
+    if (channelMatch[2] === "test") {
+      const delivery = { uuid: "019b37af-d300-7000-8000-000000000099", rule_id: null, channel_id: channel.uuid, status: "sent", payload: { alert: "test", severity: "info", project_module: "test", summary: "Beampipe test notification" }, error: null, created_at: iso() };
+      alertDeliveries.unshift(delivery);
+      return json(response, { delivery_id: delivery.uuid, status: "sent_or_failed" });
+    }
+    if (request.method === "DELETE") { response.writeHead(204); return response.end(); }
+    if (request.method === "PATCH") {
+      const payload = await readJson(request);
+      return json(response, { ...channel, name: payload.name ?? channel.name, enabled: payload.enabled ?? channel.enabled, config: { ...channel.config, ...(payload.config ?? {}), url: channel.config.url }, updated_at: iso() });
+    }
+    return json(response, channel);
+  }
+  if (path === "/api/v2/alert-rules" && request.method === "GET") return json(response, alertRules);
+  if (path === "/api/v2/alert-rules" && request.method === "POST") {
+    const payload = await readJson(request);
+    const created = { uuid: "019b37af-d200-7000-8000-000000000003", name: payload.name ?? "new-rule", project_module: payload.project_module ?? "wallaby_hires", enabled: payload.enabled !== false, severity: payload.severity ?? "warning", trigger_kind: payload.trigger_kind ?? "execution_terminal", trigger_config: payload.trigger_config ?? {}, channel_ids: payload.channel_ids ?? [slackChannel.uuid], cooldown_minutes: payload.cooldown_minutes ?? 60, last_fired_at: null, created_at: iso(), updated_at: null };
+    alertRules.push(created);
+    return json(response, created, 201);
+  }
+  const ruleMatch = path.match(/^\/api\/v2\/alert-rules\/([^/]+)$/);
+  if (ruleMatch) {
+    const rule = alertRules.find((item) => item.uuid === ruleMatch[1]) ?? alertRule;
+    if (request.method === "DELETE") { response.writeHead(204); return response.end(); }
+    if (request.method === "PATCH") {
+      const payload = await readJson(request);
+      return json(response, { ...rule, ...payload, updated_at: iso() });
+    }
+    return json(response, rule);
+  }
+  if (path === "/api/v2/alert-deliveries") return json(response, alertDeliveries.slice(0, Number.parseInt(url.searchParams.get("limit") ?? "50", 10)));
   if (path === "/api/v2/metrics") {
     response.writeHead(200, { "content-type": "text/plain; version=0.0.4" });
     return response.end(`beampipe_api_requests_total{method="GET",route="/api/v2/overview",status="200"} 1842\nbeampipe_api_requests_total{method="GET",route="/api/v2/executions",status="200"} 1278\nbeampipe_api_requests_total{method="POST",route="/api/v2/sources/discover",status="202"} 122\nbeampipe_api_requests_total{method="GET",route="/api/v2/diagnostics",status="500"} 3\nbeampipe_api_request_duration_seconds_sum{method="GET",route="/api/v2/overview",status="200"} 184.2\nbeampipe_api_request_duration_seconds_count{method="GET",route="/api/v2/overview",status="200"} 1842\nbeampipe_jobs_queued{kind="discover_batch"} 3\nbeampipe_jobs_queued{kind="execute"} 1\nbeampipe_jobs_queued{kind="slurm_poll"} 1\nbeampipe_jobs_queued{kind="dim_poll"} 0\nbeampipe_jobs_oldest_queued_age_seconds{kind="discover_batch"} 48\nbeampipe_jobs_oldest_queued_age_seconds{kind="execute"} 13\nbeampipe_jobs_oldest_queued_age_seconds{kind="slurm_poll"} 6\nbeampipe_reconciliation_risk_executions 1\nbeampipe_execution_retries_total 7\nbeampipe_slurm_ssh_configured 1\n`);
   }
   return json(response, { message: `mock route not found: ${path}` }, 404);
-}).listen(18080, "127.0.0.1", () => console.log("mock beampipe on 18080"));
+}).listen(mockPort, mockHost, () => console.log(`mock beampipe on ${mockHost}:${mockPort}`));

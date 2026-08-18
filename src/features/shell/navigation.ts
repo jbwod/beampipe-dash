@@ -1,5 +1,6 @@
 import {
   Activity,
+  Bell,
   Boxes,
   Braces,
   Database,
@@ -16,6 +17,7 @@ export const navigation = [
   { href: "/sources", label: "Sources", icon: RadioTower },
   { href: "/projects", label: "Projects", icon: Braces },
   { href: "/profiles", label: "Profiles", icon: ServerCog },
+  { href: "/alerts", label: "Alerts", icon: Bell },
   { href: "/workers", label: "Workers", icon: Boxes },
   { href: "/system", label: "System", icon: Database },
 ] as const;

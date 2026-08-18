@@ -60,7 +60,9 @@ export function OverviewView() {
         <MetricCell label="queue depth" value={overview.data?.queue_depth ?? "--"} tone={(overview.data?.queue_depth ?? 0) > 0 ? "caution" : "neutral"} />
         <MetricCell label="active workers" value={overview.data?.active_workers ?? "--"} tone="positive" />
         <MetricCell label="stale workers" value={overview.data?.stale_workers ?? "--"} tone={(overview.data?.stale_workers ?? 0) > 0 ? "negative" : "neutral"} />
-        <MetricCell label="recent alerts" value={overview.data?.recent_alerts ?? "--"} tone={(overview.data?.recent_alerts ?? 0) > 0 ? "negative" : "neutral"} />
+        <Link className="contents" href={"/alerts" as Route}>
+          <MetricCell label="recent alerts" value={overview.data?.recent_alerts ?? "--"} tone={(overview.data?.recent_alerts ?? 0) > 0 ? "negative" : "neutral"} />
+        </Link>
       </section>
 
       <div className="mb-4 grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">

@@ -335,6 +335,7 @@ export interface SlurmRemoteDeployment {
   login_node: string;
   ssh_port: number;
   remote_user?: string | null;
+  ssh_credential?: string | null;
   account: string;
   home_dir: string;
   log_dir: string;
@@ -460,4 +461,46 @@ export interface DiagnosticsResponse {
   healthy: boolean;
   generated_at: string;
   diagnostics: Diagnostic[];
+}
+
+export interface NotificationChannel {
+  uuid: string;
+  name: string;
+  kind: "webhook" | "email" | string;
+  config: Record<string, unknown>;
+  secret_fields: string[];
+  configured_fields: string[];
+  enabled: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface AlertRule {
+  uuid: string;
+  name: string;
+  project_module: string | null;
+  enabled: boolean;
+  severity: string;
+  trigger_kind: string;
+  trigger_config: Record<string, unknown>;
+  channel_ids: string[];
+  cooldown_minutes: number;
+  last_fired_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface AlertDelivery {
+  uuid: string;
+  rule_id: string | null;
+  channel_id: string | null;
+  status: string;
+  payload: Record<string, unknown> | unknown;
+  error: string | null;
+  created_at: string;
+}
+
+export interface NotificationChannelTestResponse {
+  delivery_id: string;
+  status: string;
 }
