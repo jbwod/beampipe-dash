@@ -74,6 +74,9 @@ export function validateDeploymentProfile(profile: DeploymentProfile) {
     const deployment = profile.deployment;
     if (!deployment.login_node.trim()) errors.push("Slurm login node is required");
     if (!deployment.account.trim()) errors.push("Slurm account is required");
+    if (deployment.ssh_credential && !/^[A-Za-z0-9._-]{1,50}$/.test(deployment.ssh_credential)) {
+      errors.push("SSH credential must use 1-50 letters, digits, dots, underscores, or dashes");
+    }
     validatePort(deployment.ssh_port, "SSH port", errors);
     for (const [label, path] of [["Home directory", deployment.home_dir], ["Log directory", deployment.log_dir], ["DALiuGE root", deployment.dlg_root]] as const) {
       if (!path.startsWith("/")) errors.push(`${label} must be an absolute remote path`);
@@ -114,6 +117,7 @@ function createSlurmDeployment(): SlurmRemoteDeployment {
     login_node: "",
     ssh_port: 22,
     remote_user: null,
+    ssh_credential: "setonix",
     account: "",
     home_dir: "/scratch/project",
     log_dir: "/scratch/project/beampipe/logs",

@@ -53,7 +53,45 @@ function RestEditor({ deployment, onChange }: { deployment: RestRemoteDeployment
 
 function SlurmConnectionEditor({ deployment, onChange }: { deployment: SlurmRemoteDeployment; onChange: (value: SlurmRemoteDeployment) => void }) {
   const set = <K extends keyof SlurmRemoteDeployment>(key: K, value: SlurmRemoteDeployment[K]) => onChange({ ...deployment, [key]: value });
-  return <><ProfileSection title="SSH target"><ProfileGrid columns={4}><ProfileTextField label="Login node" onChange={(value) => set("login_node", value)} placeholder="setonix.pawsey.org.au" value={deployment.login_node} /><ProfileNumberField label="SSH port" max={65_535} min={1} onChange={(value) => set("ssh_port", value ?? 22)} value={deployment.ssh_port} /><ProfileTextField label="Remote user" onChange={(value) => set("remote_user", value || null)} value={deployment.remote_user} /><ProfileTextField label="Facility" onChange={(value) => set("facility", value)} value={deployment.facility} /></ProfileGrid></ProfileSection><ProfileSection title="Remote workspace"><ProfileGrid><ProfileTextField label="Slurm account" onChange={(value) => set("account", value)} value={deployment.account} /><ProfileTextField label="Home directory" onChange={(value) => set("home_dir", value)} value={deployment.home_dir} /><ProfileTextField label="DALiuGE root" onChange={(value) => set("dlg_root", value)} value={deployment.dlg_root} /><ProfileTextField label="Log directory" onChange={(value) => set("log_dir", value)} value={deployment.log_dir} /></ProfileGrid></ProfileSection></>;
+  const slot = deployment.ssh_credential?.trim() || "<slot>";
+  return (
+    <>
+      <ProfileSection title="SSH target">
+        <ProfileGrid columns={4}>
+          <ProfileTextField label="Login node" onChange={(value) => set("login_node", value)} placeholder="setonix.pawsey.org.au" value={deployment.login_node} />
+          <ProfileNumberField label="SSH port" max={65_535} min={1} onChange={(value) => set("ssh_port", value ?? 22)} value={deployment.ssh_port} />
+          <ProfileTextField label="Remote user" onChange={(value) => set("remote_user", value || null)} value={deployment.remote_user} />
+          <ProfileTextField label="Facility" onChange={(value) => set("facility", value)} value={deployment.facility} />
+        </ProfileGrid>
+      </ProfileSection>
+      <ProfileSection
+        detail="Names the Core credential directory only. Dash never accepts the private key or passphrase. Create files with `beampipe slurm credentials init --slot setonix`. Passphrase-locked keys use a 0600 passphrase file beside private_key."
+        title="SSH credential slot"
+      >
+        <ProfileTextField
+          label="Credential slot"
+          onChange={(value) => set("ssh_credential", value || null)}
+          placeholder="setonix"
+          value={deployment.ssh_credential}
+        />
+        <p className="mt-3 font-mono text-[10px] leading-5 text-[var(--bp-muted)]">
+          $BEAMPIPE_SSH_CREDENTIALS_DIR/{slot}/private_key
+          <br />
+          $BEAMPIPE_SSH_CREDENTIALS_DIR/{slot}/passphrase
+          <br />
+          $BEAMPIPE_SSH_CREDENTIALS_DIR/{slot}/known_hosts
+        </p>
+      </ProfileSection>
+      <ProfileSection title="Remote workspace">
+        <ProfileGrid>
+          <ProfileTextField label="Slurm account" onChange={(value) => set("account", value)} value={deployment.account} />
+          <ProfileTextField label="Home directory" onChange={(value) => set("home_dir", value)} value={deployment.home_dir} />
+          <ProfileTextField label="DALiuGE root" onChange={(value) => set("dlg_root", value)} value={deployment.dlg_root} />
+          <ProfileTextField label="Log directory" onChange={(value) => set("log_dir", value)} value={deployment.log_dir} />
+        </ProfileGrid>
+      </ProfileSection>
+    </>
+  );
 }
 
 function SlurmResourceEditor({ deployment, onChange }: { deployment: SlurmRemoteDeployment; onChange: (value: SlurmRemoteDeployment) => void }) {

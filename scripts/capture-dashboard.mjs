@@ -3,6 +3,9 @@ import { chromium } from "@playwright/test";
 const baseUrl = process.env.BEAMPIPE_DASH_URL ?? "http://127.0.0.1:3100";
 const outputDir = process.env.BEAMPIPE_DASH_SCREENSHOT_DIR ?? "/private/tmp";
 const expectedText = process.env.BEAMPIPE_DASH_EXPECT_TEXT;
+const login = process.env.BEAMPIPE_DASH_SCREENSHOT_LOGIN === "true";
+const username = process.env.BEAMPIPE_DASH_SCREENSHOT_USERNAME ?? "operator";
+const password = process.env.BEAMPIPE_DASH_SCREENSHOT_PASSWORD ?? "demo";
 const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -16,8 +19,20 @@ for (const viewport of [
   { name: "desktop", width: 1440, height: 1000 },
   { name: "mobile", width: 390, height: 844 },
 ]) {
+  const context = await browser.newContext({ viewport });
+  if (login) {
+    const loginPage = await context.newPage();
+    await loginPage.goto(`${baseUrl}/login`, { waitUntil: "domcontentloaded" });
+    await loginPage.getByLabel("USERNAME").fill(username);
+    await loginPage.getByLabel("PASSWORD").fill(password);
+    await Promise.all([
+      loginPage.waitForURL(/\/overview$/),
+      loginPage.getByRole("button", { name: "CONTINUE" }).click(),
+    ]);
+    await loginPage.close();
+  }
   for (const route of routes) {
-    const page = await browser.newPage({ viewport });
+    const page = await context.newPage();
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(`${baseUrl}/${route}`, { waitUntil: "domcontentloaded" });
@@ -47,6 +62,7 @@ for (const viewport of [
     console.log(`${route}/${viewport.name}: ${JSON.stringify(dimensions)}`);
     await page.close();
   }
+  await context.close();
 }
 
 await browser.close();

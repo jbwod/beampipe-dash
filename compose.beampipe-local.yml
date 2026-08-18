@@ -1,0 +1,14 @@
+services:
+  dashboard:
+    environment:
+      BEAMPIPE_API_URL: http://api:8080
+    ports: !override
+      - "127.0.0.1:3000:3000"
+    networks:
+      - default
+      - beampipe-core
+
+networks:
+  beampipe-core:
+    external: true
+    name: beampipe-core-v2_default

@@ -6,6 +6,12 @@ describe("deployment profile drafts", () => {
     expect(validateDeploymentProfile(createDeploymentProfile("rest_remote"))).toEqual([]);
   });
 
+  it("defaults a new Slurm profile to the setonix credential slot", () => {
+    const profile = createDeploymentProfile("slurm_remote");
+    if (profile.deployment.kind !== "slurm_remote") throw new Error("expected Slurm profile");
+    expect(profile.deployment.ssh_credential).toBe("setonix");
+  });
+
   it("switches backends without dropping shared translation policy", () => {
     const rest = createDeploymentProfile("rest_remote");
     rest.translation.tm_url = "http://translator:8084";
@@ -22,9 +28,11 @@ describe("deployment profile drafts", () => {
     profile.deployment.account = "project";
     profile.deployment.log_dir = "/scratch/project;whoami";
     profile.deployment.resources.nodes = 0;
+    profile.deployment.ssh_credential = "../etc";
     expect(validateDeploymentProfile(profile)).toEqual(expect.arrayContaining([
       "Log directory contains unsafe shell characters",
       "Nodes must be at least 1",
+      "SSH credential must use 1-50 letters, digits, dots, underscores, or dashes",
     ]));
   });
 
