@@ -1,9 +1,10 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Activity, ArrowRight, LoaderCircle, RadioTower } from "lucide-react";
+import { Activity, ArrowRight, LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { BeampipeLogo } from "@/shared/components/beampipe-logo";
 import { dashboardFetch } from "@/shared/lib/http";
 
 interface ConnectionState {
@@ -53,17 +54,15 @@ export function LoginForm() {
         </header>
 
         <div className="px-5 py-7 sm:px-7">
-          <div className="mb-8 flex items-start gap-4">
-            <div className="grid size-10 shrink-0 place-items-center border border-[var(--bp-cyan)] text-[var(--bp-cyan)]">
-              <RadioTower className="size-5" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="mb-1 text-xs text-[var(--bp-cyan)]">$ beampipe dash</p>
-              <h1 className="text-balance text-xl font-semibold">Operator sign in</h1>
-              <p className="mt-2 text-pretty text-xs leading-5 text-[var(--bp-muted)]">
-                Authenticate against the connected Beampipe control plane.
-              </p>
-            </div>
+          <div className="mb-6 flex justify-center">
+            <BeampipeLogo className="h-auto w-full max-w-[22rem]" />
+          </div>
+          <div className="mb-8 text-center">
+            <p className="mb-1 text-xs text-[var(--bp-cyan)]">$ beampipe dash</p>
+            <h1 className="text-balance text-xl font-semibold">Operator sign in</h1>
+            <p className="mt-2 text-pretty text-xs leading-5 text-[var(--bp-muted)]">
+              Authenticate against the connected Beampipe control plane.
+            </p>
           </div>
 
           <form

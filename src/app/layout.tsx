@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s | beampipe dash",
   },
   description: "Operate Beampipe discovery and DALiuGE execution.",
-  icons: { icon: "/beampipe-terminal-icon.png" },
+  icons: { icon: "/brand/beampipe-terminal-logo.svg" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

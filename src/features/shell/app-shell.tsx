@@ -1,12 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, RadioTower } from "lucide-react";
+import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { Route } from "next";
 import { useEffect } from "react";
 import { navigation } from "./navigation";
+import { BeampipeLogo } from "@/shared/components/beampipe-logo";
 import { cn } from "@/shared/lib/cn";
 import { dashboardFetch } from "@/shared/lib/http";
 
@@ -39,7 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh bg-[var(--bp-bg)]">
       <header className="sticky top-0 z-30 flex h-8 items-center border-b border-[var(--bp-border)] bg-black px-2 text-[11px] text-[var(--bp-muted)] sm:px-3">
         <Link className="flex items-center gap-2 text-[var(--bp-text)]" href="/overview">
-          <RadioTower className="size-3.5 text-[var(--bp-cyan)]" aria-hidden="true" />
+          <BeampipeLogo alt="" className="h-5 w-auto" />
           <span>[0] beampipe:dash</span>
         </Link>
         <span className="mx-3 hidden text-[var(--bp-border)] sm:inline">|</span>
