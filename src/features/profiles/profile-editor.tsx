@@ -4,6 +4,8 @@ import { Tabs } from "@base-ui/react/tabs";
 import type { DeploymentProfile, RestRemoteDeployment, SlurmRemoteDeployment } from "@/shared/types/beampipe";
 import { changeDeploymentKind } from "./profile-draft";
 import { ProfileGrid, ProfileNumberField, ProfileSection, ProfileSelect, ProfileTextField, ProfileToggle } from "./profile-fields";
+import { useSlurmCredentialSlots } from "./queries";
+import { slurmCredentialSelectOptions } from "./slurm-credential-options";
 
 const tabClass = "h-9 shrink-0 border-r border-[var(--bp-border-soft)] px-3 text-[10px] uppercase text-[var(--bp-muted)] hover:text-[var(--bp-text)] data-active:bg-[var(--bp-panel-soft)] data-active:text-[var(--bp-cyan)]";
 const panelClass = "p-4 outline-none [[hidden]]:hidden";
@@ -53,7 +55,9 @@ function RestEditor({ deployment, onChange }: { deployment: RestRemoteDeployment
 
 function SlurmConnectionEditor({ deployment, onChange }: { deployment: SlurmRemoteDeployment; onChange: (value: SlurmRemoteDeployment) => void }) {
   const set = <K extends keyof SlurmRemoteDeployment>(key: K, value: SlurmRemoteDeployment[K]) => onChange({ ...deployment, [key]: value });
+  const credentials = useSlurmCredentialSlots();
   const slot = deployment.ssh_credential?.trim() || "<slot>";
+  const options = slurmCredentialSelectOptions(credentials.data?.slots, deployment.ssh_credential);
   return (
     <>
       <ProfileSection title="SSH target">
@@ -68,12 +72,23 @@ function SlurmConnectionEditor({ deployment, onChange }: { deployment: SlurmRemo
         detail="Names the Core credential directory only; it is not a hostname. Dash never stores keys. Generate with `beampipe slurm credentials init --slot SLOT --host LOGIN_NODE`, then install private_key.pub (`copy-id` or the site process). Import an existing key and skip the upload if authorized_keys already has it. Passphrase-locked keys use a 0600 passphrase file beside private_key."
         title="SSH credential slot"
       >
-        <ProfileTextField
-          label="Credential slot"
-          onChange={(value) => set("ssh_credential", value || null)}
-          placeholder="hpc"
-          value={deployment.ssh_credential}
-        />
+        <ProfileGrid>
+          <ProfileSelect
+            disabled={credentials.isPending}
+            label="Installed slot"
+            onChange={(value) => set("ssh_credential", value || null)}
+            options={options}
+            value={deployment.ssh_credential ?? ""}
+          />
+          <ProfileTextField
+            label="Custom slot name"
+            onChange={(value) => set("ssh_credential", value.trim() || null)}
+            placeholder="hpc"
+            value={deployment.ssh_credential}
+          />
+        </ProfileGrid>
+        {credentials.isError ? <p className="mt-2 text-[10px] text-[var(--bp-red)]">Installed credential slots could not be loaded. Enter a slot name above.</p> : null}
+        {credentials.isSuccess && (credentials.data?.slots.length ?? 0) === 0 ? <p className="mt-2 text-[10px] text-[var(--bp-subtle)]">No slots are installed on the API host yet. Enter a name or run `beampipe slurm credentials init`.</p> : null}
         <p className="mt-3 font-mono text-[10px] leading-5 text-[var(--bp-muted)]">
           $BEAMPIPE_SSH_CREDENTIALS_DIR/{slot}/private_key
           <br />

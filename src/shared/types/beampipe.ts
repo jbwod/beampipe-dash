@@ -379,6 +379,18 @@ export interface DeploymentProfileResponse extends DeploymentProfile {
   updated_at?: string | null;
 }
 
+export interface SlurmCredentialSlot {
+  name: string;
+  private_key: boolean;
+  public_key: boolean;
+  passphrase: boolean;
+  known_hosts: boolean;
+}
+
+export interface SlurmCredentialListResponse {
+  slots: SlurmCredentialSlot[];
+}
+
 export interface DaliugeInspectResponse {
   profile: string | null;
   translator: unknown;

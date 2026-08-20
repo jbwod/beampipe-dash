@@ -140,6 +140,14 @@ http.createServer(async (request, response) => {
   if (path === "/api/v2/project-configs" && request.method === "POST") return json(response, { project_id: "wallaby_hires", valid: true, errors: [], warnings: [{ severity: "warning", code: "demo.saved", path: "metadata.id", message: "Mock project revision accepted" }], spec_sha256: "new-demo-sha" }, 201);
   if (path === "/api/v2/project-configs/wallaby_hires/versions") return json(response, projectRows);
   if (path === "/api/v2/project-configs/wallaby_hires") return json(response, projectRows[0]);
+  if (path === "/api/v2/slurm/credentials") return json(response, { slots: [{ name: "hpc", private_key: true, public_key: true, passphrase: false, known_hosts: true }, { name: "setonix", private_key: false, public_key: true, passphrase: false, known_hosts: true }] });
+  const slurmSlotMatch = path.match(/^\/api\/v2\/slurm\/credentials\/([^/]+)$/);
+  if (slurmSlotMatch) {
+    const slots = [{ name: "hpc", private_key: true, public_key: true, passphrase: false, known_hosts: true }, { name: "setonix", private_key: false, public_key: true, passphrase: false, known_hosts: true }];
+    const slot = slots.find((item) => item.name === slurmSlotMatch[1]);
+    if (!slot) return json(response, { error: "not found", code: "not_found" }, 404);
+    return json(response, slot);
+  }
   if (path === "/api/v2/deployment-profiles" && request.method === "GET") return json(response, deploymentProfiles);
   if (path === "/api/v2/deployment-profiles" && request.method === "POST") return json(response, { ...restProfile, uuid: "019b37af-c000-7000-8000-000000000003", name: "created-profile", revision: 1, created_at: iso(), updated_at: null }, 201);
   const profileMatch = path.match(/^\/api\/v2\/deployment-profiles\/([^/]+)$/);

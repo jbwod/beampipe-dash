@@ -26,6 +26,6 @@ export function ProfileToggle({ checked, label, onChange }: { checked: boolean |
   return <label className="flex min-h-9 items-center gap-2 text-xs"><Checkbox.Root checked={Boolean(checked)} className="grid size-4 shrink-0 place-items-center border border-[var(--bp-border)] bg-black text-black data-checked:border-[var(--bp-green)] data-checked:bg-[var(--bp-green)]" onCheckedChange={(value) => onChange(value === true)}><Checkbox.Indicator><Check className="size-3" /></Checkbox.Indicator></Checkbox.Root><span>{label}</span></label>;
 }
 
-export function ProfileSelect({ label, onChange, options, value }: { label: string; onChange: (value: string) => void; options: Array<{ label: string; value: string }>; value: string }) {
-  return <label className="block min-w-0"><span className="mb-1.5 block text-[10px] uppercase text-[var(--bp-subtle)]">{label}</span><select className={inputClass} onChange={(event) => onChange(event.target.value)} value={value}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
+export function ProfileSelect({ disabled = false, label, onChange, options, value }: { disabled?: boolean; label: string; onChange: (value: string) => void; options: Array<{ label: string; value: string }>; value: string }) {
+  return <label className="block min-w-0"><span className="mb-1.5 block text-[10px] uppercase text-[var(--bp-subtle)]">{label}</span><select className={inputClass} disabled={disabled} onChange={(event) => onChange(event.target.value)} value={value}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
 }
