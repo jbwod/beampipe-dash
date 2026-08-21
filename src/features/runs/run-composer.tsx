@@ -4,7 +4,7 @@ import { Checkbox } from "@base-ui/react/checkbox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Database, Play, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { EmptyRows, LoadingRows, QueryFailure, SectionHeading } from "@/shared/components/operator-ui";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { dashboardFetch } from "@/shared/lib/http";
@@ -13,6 +13,7 @@ import type { Execution, ExecutionCreatePayload, ExecutionPrepareResponse, Sourc
 import { useProjects, useSources } from "@/features/monitoring/queries";
 import { sourceState } from "@/features/monitoring/sources-view";
 import { useDeploymentProfiles } from "@/features/profiles/queries";
+import { createOrResumeExecution } from "./run-workflow";
 
 const inputClass = "h-9 w-full min-w-0 border border-[var(--bp-border-soft)] bg-black px-2.5 text-xs";
 
@@ -36,6 +37,7 @@ export function RunComposer() {
   const [doSubmit, setDoSubmit] = useState(true);
   const [validatedFingerprint, setValidatedFingerprint] = useState<string | null>(null);
   const [createdRun, setCreatedRun] = useState<Execution | null>(null);
+  const createdRunRef = useRef<Execution | null>(null);
 
   const scopedProfiles = (profiles.data ?? []).filter((profile) => !profile.project_module || profile.project_module === effectiveProject);
   const preferredProfile = scopedProfiles.find((profile) => profile.project_module === effectiveProject && profile.is_default)
@@ -61,10 +63,17 @@ export function RunComposer() {
 
   const create = useMutation({
     mutationFn: async () => {
-      const run = await dashboardFetch<Execution>("/api/beampipe/executions", { method: "POST", body: JSON.stringify(payload) });
-      setCreatedRun(run);
-      if (startImmediately) await dashboardFetch(`/api/beampipe/executions/${run.uuid}/execute`, { method: "POST", body: JSON.stringify({ do_stage: doStage, do_submit: doSubmit }) });
-      return run;
+      return createOrResumeExecution({
+        existing: createdRunRef.current,
+        create: () => dashboardFetch<Execution>("/api/beampipe/executions", { method: "POST", body: JSON.stringify(payload) }),
+        start: startImmediately
+          ? (run) => dashboardFetch(`/api/beampipe/executions/${run.uuid}/execute`, { method: "POST", body: JSON.stringify({ do_stage: doStage, do_submit: doSubmit }) })
+          : undefined,
+        onCreated: (run) => {
+          createdRunRef.current = run;
+          setCreatedRun(run);
+        },
+      });
     },
     onSuccess: async (run) => {
       await Promise.all([queryClient.invalidateQueries({ queryKey: ["executions"] }), queryClient.invalidateQueries({ queryKey: ["jobs"] })]);
@@ -99,7 +108,9 @@ export function RunComposer() {
     invalidatePreview();
   };
   const previewCurrent = validatedFingerprint === fingerprint ? prepare.data : undefined;
-  const canCreate = Boolean(previewCurrent?.valid && selectedRows.length && effectiveProfileId && !create.isPending);
+  const canCreate = createdRun
+    ? startImmediately && !create.isPending
+    : Boolean(previewCurrent?.valid && selectedRows.length && effectiveProfileId && !create.isPending);
 
   return <div className="p-4 sm:p-6">
     <div className="mb-4 grid grid-cols-4 border border-[var(--bp-border)] text-[10px] uppercase"><Step active label="Define" number="01" /><Step active={selectedRows.length > 0} label="Select" number="02" /><Step active={Boolean(previewCurrent?.valid)} label="Validate" number="03" /><Step active={Boolean(createdRun)} label="Queue" number="04" /></div>
@@ -119,7 +130,7 @@ export function RunComposer() {
 
         {previewCurrent ? <Preview preview={previewCurrent} /> : <div className="grid min-h-40 place-items-center px-4 text-center text-[10px] leading-5 text-[var(--bp-subtle)]">[ validate the exact selection before creating its ledger record ]</div>}
 
-        <div className="border-t border-[var(--bp-border)] p-4"><Toggle checked={startImmediately} label="Start immediately after creation" onChange={setStartImmediately} />{startImmediately ? <div className="mt-3 grid grid-cols-2 gap-3 border-l-2 border-[var(--bp-border)] pl-3"><Toggle checked={doStage} label="Stage inputs" onChange={setDoStage} /><Toggle checked={doSubmit} label="Submit backend" onChange={setDoSubmit} /></div> : null}<button className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 border border-[var(--bp-green)] text-[10px] uppercase text-[var(--bp-green)] disabled:cursor-not-allowed disabled:opacity-40" disabled={!canCreate} onClick={() => create.mutate()} type="button">{create.isPending ? "Creating execution" : startImmediately ? <><Play className="size-3.5" />Create + start</> : <><ArrowRight className="size-3.5" />Create pending run</>}</button>{create.isError ? <p className="mt-3 text-[10px] leading-5 text-[var(--bp-red)]">! {create.error.message}</p> : null}</div>
+        <div className="border-t border-[var(--bp-border)] p-4"><Toggle checked={startImmediately} label="Start immediately after creation" onChange={setStartImmediately} />{startImmediately ? <div className="mt-3 grid grid-cols-2 gap-3 border-l-2 border-[var(--bp-border)] pl-3"><Toggle checked={doStage} label="Stage inputs" onChange={setDoStage} /><Toggle checked={doSubmit} label="Submit backend" onChange={setDoSubmit} /></div> : null}<button className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 border border-[var(--bp-green)] text-[10px] uppercase text-[var(--bp-green)] disabled:cursor-not-allowed disabled:opacity-40" disabled={!canCreate} onClick={() => create.mutate()} type="button">{create.isPending ? createdRun ? "Retrying start" : "Creating execution" : createdRun ? <><Play className="size-3.5" />Retry existing run</> : startImmediately ? <><Play className="size-3.5" />Create + start</> : <><ArrowRight className="size-3.5" />Create pending run</>}</button>{create.isError ? <p className="mt-3 text-[10px] leading-5 text-[var(--bp-red)]">! {create.error.message}{createdRun ? ` The execution ${shortId(createdRun.uuid)} was created; retry will reuse it.` : ""}</p> : null}</div>
       </aside>
     </div>
   </div>;

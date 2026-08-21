@@ -28,7 +28,7 @@ export function RunActions({ run }: { run: Execution }) {
     },
   });
   const active = ["running", "awaiting_scheduler"].includes(run.status);
-  const retryable = ["failed", "cancelled", "not_submitted"].includes(run.status);
+  const retryable = run.status === "failed";
   const pending = run.status === "pending";
   const dimSessionUrl = safeExternalUrl(run.dim_session_status_url);
 

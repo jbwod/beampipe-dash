@@ -10,7 +10,7 @@ import { eagleUrlFromGraphUrl } from "@/shared/lib/eagle";
 import { safeExternalUrl } from "@/shared/lib/http";
 import { formatAge, formatDateTime, formatSeconds, shortId } from "@/shared/lib/time";
 import type { ExecutionArtifact, ExecutionObservation, ProvenanceEvent } from "@/shared/types/beampipe";
-import { useExecution, useExecutionArtifacts, useExecutionEvents, useExecutionObservations, useExecutionStatus, useExecutionSummary, useLedgerSnapshot } from "@/features/monitoring/queries";
+import { isTerminal, useExecution, useExecutionArtifacts, useExecutionEvents, useExecutionObservations, useExecutionStatus, useExecutionSummary, useLedgerSnapshot } from "@/features/monitoring/queries";
 import { RunActions } from "./run-actions";
 
 const tabClass = "h-9 shrink-0 border-r border-[var(--bp-border-soft)] px-3 text-[10px] uppercase text-[var(--bp-muted)] hover:text-[var(--bp-text)] data-active:bg-[var(--bp-panel-soft)] data-active:text-[var(--bp-cyan)]";
@@ -18,12 +18,13 @@ const panelClass = "outline-none [[hidden]]:hidden";
 
 export function RunExplorer({ id }: { id: string }) {
   const run = useExecution(id);
-  const status = useExecutionStatus(id);
-  const summary = useExecutionSummary(id);
-  const events = useExecutionEvents(id);
-  const observations = useExecutionObservations(id);
-  const artifacts = useExecutionArtifacts(id);
-  const ledger = useLedgerSnapshot(id);
+  const terminal = isTerminal(run.data?.status);
+  const status = useExecutionStatus(id, terminal);
+  const summary = useExecutionSummary(id, terminal);
+  const events = useExecutionEvents(id, terminal);
+  const observations = useExecutionObservations(id, terminal);
+  const artifacts = useExecutionArtifacts(id, terminal);
+  const ledger = useLedgerSnapshot(id, terminal);
   const queries = [run, status, summary, events, observations, artifacts, ledger];
 
   if (run.isError) return <div className="p-4 sm:p-6"><QueryFailure message="Run could not be loaded" retry={() => run.refetch()} /></div>;
@@ -35,7 +36,7 @@ export function RunExplorer({ id }: { id: string }) {
     <div className="p-4 sm:p-6">
       <div className="mb-4 flex flex-col gap-3 border border-[var(--bp-border)] p-3 lg:flex-row lg:items-center">
         <div className="min-w-0 flex-1"><div className="mb-1 flex flex-wrap items-center gap-2"><StatusBadge status={current?.status ?? run.data.status} /><span className="text-[10px] uppercase text-[var(--bp-subtle)]">{run.data.project_module}</span><span className="text-[10px] text-[var(--bp-border)]">/</span><span className="truncate text-[10px] text-[var(--bp-muted)]">{run.data.uuid}</span></div><p className="text-xs text-[var(--bp-highlight)]">{summary.data?.requested_source_count ?? sourceIdentifiers(run.data.sources).length} sources / {run.data.archive_name} / {formatSeconds(current?.duration_seconds)} elapsed / {run.data.retry_count} retries</p></div>
-        <div className="flex items-start gap-3"><LiveIndicator fetching={queries.some((query) => query.isFetching)} /><RunActions run={run.data} /></div>
+        <div className="flex items-start gap-3"><LiveIndicator fetching={queries.some((query) => query.isFetching)} label={terminal ? "terminal / manual refresh" : "live / 5s"} /><RunActions run={run.data} /></div>
       </div>
 
       {run.data.last_error ? <div className="mb-4 border-l-2 border-[var(--bp-red)] bg-[var(--bp-red)]/5 px-3 py-3"><p className="mb-1 text-[10px] uppercase text-[var(--bp-red)]">Last execution error</p><p className="text-xs leading-5 text-[var(--bp-highlight)]">{run.data.last_error}</p>{run.data.failure_class ? <p className="mt-1 text-[10px] text-[var(--bp-muted)]">class / {run.data.failure_class}</p> : null}</div> : null}
