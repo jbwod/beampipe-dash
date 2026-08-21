@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const payload: unknown = await upstream.json().catch(() => null);
     if (!upstream.ok || !isTokenPair(payload)) {
       return NextResponse.json(
-        { message: upstream.status === 401 ? "Invalid username or password" : "Login failed" },
+        { message: [400, 401].includes(upstream.status) ? "Invalid username or password" : "Login failed" },
         { status: upstream.status || 502 },
       );
     }
