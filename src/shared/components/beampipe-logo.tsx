@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { cn } from "@/shared/lib/cn";
 
 export function BeampipeLogo({
@@ -8,10 +9,13 @@ export function BeampipeLogo({
   className?: string;
 }) {
   return (
-    <img
+    <Image
       alt={alt}
       className={cn("block h-auto w-auto", className)}
+      height={793}
       src="/brand/beampipe-terminal-logo.svg"
+      unoptimized
+      width={1983}
     />
   );
 }
