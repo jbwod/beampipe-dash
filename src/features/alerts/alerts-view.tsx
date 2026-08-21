@@ -27,7 +27,7 @@ const TRIGGER_KINDS = [
 const SEVERITIES = ["info", "warning", "critical"] as const;
 const TEMPLATES = ["generic", "slack", "pagerduty"] as const;
 
-type ChannelDraft = {
+export type ChannelDraft = {
   name: string;
   kind: "webhook" | "email";
   url: string;
@@ -70,7 +70,7 @@ function configString(config: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value : "";
 }
 
-function channelFromRow(row: NotificationChannel): ChannelDraft {
+export function channelFromRow(row: NotificationChannel): ChannelDraft {
   const config = row.config ?? {};
   const url = configString(config, "url");
   const password = configString(config, "password");
@@ -110,7 +110,7 @@ function ruleFromRow(row: AlertRule): RuleDraft {
   };
 }
 
-function channelConfigPayload(draft: ChannelDraft) {
+export function channelConfigPayload(draft: ChannelDraft, existing?: NotificationChannel | null) {
   if (draft.kind === "email") {
     const config: Record<string, unknown> = {
       smtp_host: draft.smtpHost.trim(),
@@ -120,7 +120,14 @@ function channelConfigPayload(draft: ChannelDraft) {
     if (draft.password.trim()) config.password = draft.password.trim();
     return config;
   }
-  const headers = Object.fromEntries(draft.headers.filter((header) => header.key.trim() && header.value.trim()).map((header) => [header.key.trim(), header.value]));
+  const draftHeaderKeys = new Set(draft.headers.map((header) => header.key.trim()).filter(Boolean));
+  const headers: Record<string, string | null> = Object.fromEntries(draft.headers.filter((header) => header.key.trim() && header.value.trim()).map((header) => [header.key.trim(), header.value]));
+  const existingHeaders = existing?.config.headers;
+  if (existingHeaders && typeof existingHeaders === "object" && !Array.isArray(existingHeaders)) {
+    for (const key of Object.keys(existingHeaders)) {
+      if (!draftHeaderKeys.has(key)) headers[key] = null;
+    }
+  }
   const config: Record<string, unknown> = { template: draft.template };
   if (draft.url.trim()) config.url = draft.url.trim();
   if (Object.keys(headers).length) config.headers = headers;
@@ -179,7 +186,7 @@ export function AlertsView() {
 
   const saveChannel = useMutation({
     mutationFn: () => {
-      const body: Record<string, unknown> = { name: channelDraft.name.trim(), enabled: channelDraft.enabled, config: channelConfigPayload(channelDraft) };
+      const body: Record<string, unknown> = { name: channelDraft.name.trim(), enabled: channelDraft.enabled, config: channelConfigPayload(channelDraft, editingChannel) };
       if (!editingChannel) body.kind = channelDraft.kind;
       return dashboardFetch<NotificationChannel>(editingChannel ? `/api/beampipe/notification-channels/${editingChannel.uuid}` : "/api/beampipe/notification-channels", {
         method: editingChannel ? "PATCH" : "POST",
