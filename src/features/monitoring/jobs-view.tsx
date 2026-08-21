@@ -15,7 +15,7 @@ export function JobsView() {
   const leases = useWorkerLeases();
   const scheduler = useSchedulerJobs();
   const samples = parsePrometheus(metrics.data ?? "");
-  const queued = metricByLabel(samples, "beampipe_jobs_queued", "kind").sort((left, right) => right.value - left.value);
+  const queued = metricByLabel(samples, "beampipe_jobs_queued", "kind").filter((item) => item.value > 0).sort((left, right) => right.value - left.value);
   const ages = new Map(metricByLabel(samples, "beampipe_jobs_oldest_queued_age_seconds", "kind").map((item) => [item.key, item.value]));
   const maxQueue = Math.max(1, ...queued.map((item) => item.value));
 
@@ -30,7 +30,7 @@ export function JobsView() {
       </section>
 
       <section className="mb-4 border border-[var(--bp-border)]">
-        <SectionHeading title="Queue by kind" detail="PostgreSQL durable job gauges" />
+        <SectionHeading title="Queue by kind" detail="runnable PostgreSQL durable jobs" />
         {metrics.isError ? <QueryFailure message="Queue metrics are unavailable" retry={() => metrics.refetch()} /> : metrics.isLoading ? <LoadingRows /> : queued.length ? (
           <div className="grid divide-y divide-[var(--bp-border-soft)] md:grid-cols-2 md:divide-x">
             {queued.map((item) => <div className="px-3 py-3" key={item.key}><div className="mb-2 flex items-center justify-between gap-3 text-xs"><span>{item.key}</span><span className="tabular-nums text-[var(--bp-highlight)]">{item.value} queued</span></div><Bar max={maxQueue} tone={item.value > 0 ? "amber" : "green"} value={item.value} /><p className="mt-2 text-[10px] text-[var(--bp-subtle)]">oldest {formatSeconds(ages.get(item.key))}</p></div>)}

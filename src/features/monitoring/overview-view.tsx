@@ -18,7 +18,7 @@ export function OverviewView() {
   const fetching = [overview, ready, metrics, executions, pools].some((query) => query.isFetching);
   const samples = parsePrometheus(metrics.data ?? "");
   const traffic = summarizeApiTraffic(samples);
-  const queued = metricByLabel(samples, "beampipe_jobs_queued", "kind").sort((left, right) => right.value - left.value);
+  const queued = metricByLabel(samples, "beampipe_jobs_queued", "kind").filter((item) => item.value > 0).sort((left, right) => right.value - left.value);
   const maxQueue = Math.max(1, ...queued.map((item) => item.value));
 
   return (
@@ -91,7 +91,7 @@ export function OverviewView() {
         </section>
 
         <section className="border border-[var(--bp-border)]">
-          <SectionHeading title="Durable queue" detail="queued by job kind" action={<Link className="text-[10px] uppercase text-[var(--bp-cyan)] hover:underline" href="/jobs">Open jobs</Link>} />
+          <SectionHeading title="Durable queue" detail="runnable jobs by kind" action={<Link className="text-[10px] uppercase text-[var(--bp-cyan)] hover:underline" href="/jobs">Open jobs</Link>} />
           {metrics.isLoading ? <LoadingRows rows={5} /> : queued.length ? (
             <div className="divide-y divide-[var(--bp-border-soft)]">
               {queued.slice(0, 8).map((item) => <div className="grid grid-cols-[minmax(0,1fr)_48px] items-center gap-3 px-3 py-2.5 text-[11px]" key={item.key}><div className="min-w-0"><p className="mb-1 truncate">{item.key}</p><Bar max={maxQueue} value={item.value} tone={item.value > 0 ? "amber" : "green"} /></div><span className="text-right tabular-nums">{item.value}</span></div>)}
