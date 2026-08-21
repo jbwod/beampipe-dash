@@ -6,15 +6,16 @@ import CodeMirror from "@uiw/react-codemirror";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Braces, Check, Copy, FilePlus2, History, Save } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { parse, stringify } from "yaml";
 import { QueryFailure } from "@/shared/components/operator-ui";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { dashboardFetch } from "@/shared/lib/http";
+import { useUnsavedNavigationGuard } from "@/shared/hooks/use-unsaved-navigation-guard";
 import { formatDateTime, shortId } from "@/shared/lib/time";
 import type { ProjectConfigRow, ValidationReport } from "@/shared/types/beampipe";
 import { useCurrentUser, useProjects } from "@/features/monitoring/queries";
-import { createProjectDraft, isProjectDraft, normalizeProjectDraft, type ProjectDraft, updateDraft } from "./project-draft";
+import { createProjectDraft, isProjectDraft, normalizeProjectDraft, type ProjectDraft, updateDraft, validateProjectDraft } from "./project-draft";
 import { ProjectVisualEditor } from "./project-visual-editor";
 import { useProjectConfig, useProjectContract, useProjectVersions } from "./queries";
 
@@ -68,14 +69,7 @@ function ProjectStudioEditor({ activeConfig, selectedProject }: { activeConfig: 
     setReport(null);
   }, []);
 
-  useEffect(() => {
-    const guard = (event: BeforeUnloadEvent) => {
-      if (!dirty) return;
-      event.preventDefault();
-    };
-    window.addEventListener("beforeunload", guard);
-    return () => window.removeEventListener("beforeunload", guard);
-  }, [dirty]);
+  const confirmNavigation = useUnsavedNavigationGuard(dirty, "Discard unsaved project changes?");
 
   const upload = useMutation({
     mutationFn: () => dashboardFetch<ValidationReport>("/api/beampipe/project-configs", { method: "POST", headers: { "Content-Type": "text/plain" }, body: document.yaml }),
@@ -117,6 +111,7 @@ function ProjectStudioEditor({ activeConfig, selectedProject }: { activeConfig: 
   };
 
   const newProject = () => {
+    if (!confirmNavigation()) return;
     const draft = createProjectDraft();
     setDocument({ draft, yaml: serialize(draft) });
     setYamlError(null);
@@ -126,13 +121,14 @@ function ProjectStudioEditor({ activeConfig, selectedProject }: { activeConfig: 
   };
 
   const activeReport = report ?? contract.data;
-  const canSave = currentUser.data?.is_superuser && !yamlError && document.draft.metadata.id.length > 0 && !upload.isPending;
+  const draftErrors = useMemo(() => validateProjectDraft(document.draft), [document.draft]);
+  const canSave = currentUser.data?.is_superuser && !yamlError && draftErrors.length === 0 && !upload.isPending;
 
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4 grid gap-2 border border-[var(--bp-border)] bg-[var(--bp-panel)] p-2 lg:grid-cols-[minmax(180px,1fr)_220px_auto_auto]">
-        <label><span className="sr-only">Project</span><select className="h-9 w-full border border-[var(--bp-border-soft)] bg-black px-2 text-xs" onChange={(event) => router.replace(event.target.value ? `/projects/new?project=${encodeURIComponent(event.target.value)}` : "/projects/new")} value={selectedProject ?? ""}><option value="">new project draft</option>{projects.data?.map((project) => <option key={project.project_id} value={project.project_id}>{project.project_id} / v{project.version}</option>)}</select></label>
-        <label><span className="sr-only">Version</span><select className="h-9 w-full border border-[var(--bp-border-soft)] bg-black px-2 text-xs disabled:opacity-40" disabled={!versions.data?.length} onChange={(event) => { const row = versions.data?.find((version) => version.uuid === event.target.value); if (row) { setSelectedVersionUuid(row.uuid); loadRow(row, !row.active); } }} value={selectedVersionUuid}><option value="">version history</option>{versions.data?.map((version) => <option key={version.uuid} value={version.uuid}>v{version.version}{version.active ? " / active" : ""} / {formatDateTime(version.uploaded_at)}</option>)}</select></label>
+        <label><span className="sr-only">Project</span><select className="h-9 w-full border border-[var(--bp-border-soft)] bg-black px-2 text-xs" onChange={(event) => { if (confirmNavigation()) router.replace(event.target.value ? `/projects/new?project=${encodeURIComponent(event.target.value)}` : "/projects/new"); }} value={selectedProject ?? ""}><option value="">new project draft</option>{projects.data?.map((project) => <option key={project.project_id} value={project.project_id}>{project.project_id} / v{project.version}</option>)}</select></label>
+        <label><span className="sr-only">Version</span><select className="h-9 w-full border border-[var(--bp-border-soft)] bg-black px-2 text-xs disabled:opacity-40" disabled={!versions.data?.length} onChange={(event) => { const row = versions.data?.find((version) => version.uuid === event.target.value); if (row && confirmNavigation()) { setSelectedVersionUuid(row.uuid); loadRow(row, !row.active); } }} value={selectedVersionUuid}><option value="">version history</option>{versions.data?.map((version) => <option key={version.uuid} value={version.uuid}>v{version.version}{version.active ? " / active" : ""} / {formatDateTime(version.uploaded_at)}</option>)}</select></label>
         <button className="inline-flex h-9 items-center justify-center gap-2 border border-[var(--bp-border)] px-3 text-[10px] uppercase text-[var(--bp-muted)] hover:text-[var(--bp-cyan)]" onClick={newProject} type="button"><FilePlus2 className="size-3" />New</button>
         <button className="inline-flex h-9 items-center justify-center gap-2 border border-[var(--bp-green)]/60 px-3 text-[10px] uppercase text-[var(--bp-green)] disabled:cursor-not-allowed disabled:opacity-40" disabled={!canSave} onClick={() => upload.mutate()} title={currentUser.data?.is_superuser ? "Save immutable project version" : "Superuser access required"} type="button"><Save className="size-3" />{upload.isPending ? "Saving" : "Save version"}</button>
       </div>
@@ -146,6 +142,7 @@ function ProjectStudioEditor({ activeConfig, selectedProject }: { activeConfig: 
 
       {activeConfig.isError ? <div className="mb-4"><QueryFailure message="Active project configuration could not be loaded" retry={() => activeConfig.refetch()} /></div> : null}
       {upload.isError ? <div className="mb-4 border-l-2 border-[var(--bp-red)] px-3 py-2 text-xs leading-5 text-[var(--bp-red)]">{upload.error.message}</div> : null}
+      {draftErrors.length ? <div className="mb-4 border-l-2 border-[var(--bp-red)] px-3 py-2 text-[10px] leading-5 text-[var(--bp-red)]">{draftErrors.map((error) => <p key={error}>! {error}</p>)}</div> : null}
       {activeReport && ((activeReport.errors?.length ?? 0) > 0 || (activeReport.warnings?.length ?? 0) > 0) ? <DiagnosticStrip report={activeReport} /> : null}
 
       <div className="grid min-w-0 border border-[var(--bp-border)] xl:grid-cols-[minmax(560px,0.95fr)_minmax(560px,1.05fr)]">

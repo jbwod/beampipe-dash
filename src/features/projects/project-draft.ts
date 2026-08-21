@@ -150,11 +150,70 @@ export function createProjectDraft(id = "new_project"): ProjectDraft {
 export function isProjectDraft(value: unknown): value is ProjectDraft {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
-  return typeof candidate.apiVersion === "string" && typeof candidate.kind === "string" && !!candidate.metadata && typeof candidate.metadata === "object";
+  const metadata = objectValue(candidate.metadata);
+  return typeof candidate.apiVersion === "string" && typeof candidate.kind === "string" && typeof metadata?.id === "string";
 }
 
-export function normalizeProjectDraft(value: ProjectDraft): ProjectDraft {
-  return mergeObjects(createProjectDraft(value.metadata?.id || "new_project"), value) as ProjectDraft;
+export function normalizeProjectDraft(value: unknown): ProjectDraft {
+  const input = objectValue(value) ?? {};
+  const inputMetadata = objectValue(input.metadata);
+  const id = typeof inputMetadata?.id === "string" && inputMetadata.id ? inputMetadata.id : "new_project";
+  const defaults = createProjectDraft(id);
+  const merged = mergeObjects(defaults, input) as ProjectDraft;
+
+  merged.metadata = requiredObject(merged.metadata, defaults.metadata);
+  merged.adapters = requiredObject(merged.adapters, defaults.adapters);
+  merged.adapters.required = stringArray(merged.adapters.required, defaults.adapters.required);
+  merged.adapters.tap = requiredObject(merged.adapters.tap, defaults.adapters.tap);
+  merged.discovery = requiredObject(merged.discovery, defaults.discovery);
+  merged.discovery.queries = queryArray(merged.discovery.queries);
+  merged.discovery.enrichments = queryArray(merged.discovery.enrichments);
+  merged.graph_patches = graphPatchArray(merged.graph_patches);
+  merged.automation = requiredObject(merged.automation, defaults.automation);
+  merged.automation.discovery = optionalObject(merged.automation.discovery, defaults.automation.discovery);
+  merged.automation.execution = optionalObject(merged.automation.execution, defaults.automation.execution);
+  if (merged.definitions != null) {
+    merged.definitions = requiredObject(merged.definitions, defaults.definitions ?? {});
+    merged.definitions.transforms = recordValue(merged.definitions.transforms);
+  }
+  if (merged.source_identity != null) {
+    merged.source_identity = requiredObject(merged.source_identity, defaults.source_identity!);
+    merged.source_identity.template_vars = recordValue(merged.source_identity.template_vars);
+  }
+  if (merged.discovery.prepare_metadata != null) {
+    const fallback = defaults.discovery.prepare_metadata!;
+    merged.discovery.prepare_metadata = requiredObject(merged.discovery.prepare_metadata, fallback);
+    merged.discovery.prepare_metadata.field_map = recordValue(merged.discovery.prepare_metadata.field_map);
+    merged.discovery.prepare_metadata.discovery_flags = recordValue(merged.discovery.prepare_metadata.discovery_flags);
+    if (merged.discovery.prepare_metadata.signature != null) {
+      merged.discovery.prepare_metadata.signature = requiredObject(merged.discovery.prepare_metadata.signature, fallback.signature!);
+      merged.discovery.prepare_metadata.signature.exclude_fields = stringArray(merged.discovery.prepare_metadata.signature.exclude_fields, []);
+    }
+  }
+  if (merged.manifest != null) {
+    merged.manifest = requiredObject(merged.manifest, defaults.manifest!);
+    merged.manifest.group_by = stringArray(merged.manifest.group_by, defaults.manifest!.group_by);
+    merged.manifest.source_template = recordValue(merged.manifest.source_template);
+    if (merged.manifest.dataset_template != null) merged.manifest.dataset_template = recordValue(merged.manifest.dataset_template);
+  }
+  return merged;
+}
+
+export function validateProjectDraft(draft: ProjectDraft) {
+  const errors: string[] = [];
+  if (draft.apiVersion !== "beampipe.dev/v2") errors.push("API version must be beampipe.dev/v2");
+  if (draft.kind !== "ProjectConfig") errors.push("Kind must be ProjectConfig");
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(draft.metadata.id)) errors.push("Project ID must use lowercase letters, digits, underscores, or dashes");
+  if (!draft.adapters.required.length) errors.push("At least one adapter is required");
+  if (draft.graph?.url && draft.graph.path) errors.push("Choose either a graph URL or a local graph path, not both");
+  for (const query of [...draft.discovery.queries, ...draft.discovery.enrichments]) {
+    if (!query.name.trim() || !query.adapter.trim() || !query.template.trim()) errors.push("Every discovery query needs a name, adapter, and template");
+  }
+  const execution = draft.automation.execution;
+  if (execution && execution.min_sources_to_trigger > execution.max_sources_per_execution) {
+    errors.push("Minimum sources to trigger cannot exceed sources per execution");
+  }
+  return [...new Set(errors)];
 }
 
 function mergeObjects(base: unknown, incoming: unknown): unknown {
@@ -169,6 +228,56 @@ function mergeObjects(base: unknown, incoming: unknown): unknown {
       : structuredClone(value);
   }
   return result;
+}
+
+function objectValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function requiredObject<T extends object>(value: unknown, fallback: T): T {
+  return objectValue(value) ? mergeObjects(fallback, value) as T : structuredClone(fallback);
+}
+
+function optionalObject<T extends object>(value: unknown, fallback: T | null | undefined): T | null {
+  if (value === null) return null;
+  return requiredObject(value, fallback ?? {} as T);
+}
+
+function recordValue(value: unknown): Record<string, never> {
+  return (objectValue(value) ?? {}) as Record<string, never>;
+}
+
+function stringArray(value: unknown, fallback: string[]) {
+  return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : structuredClone(fallback);
+}
+
+function queryArray(value: unknown): DiscoveryQueryDraft[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const row = objectValue(item) ?? {};
+    return {
+      ...row,
+      name: typeof row.name === "string" ? row.name : "",
+      adapter: typeof row.adapter === "string" ? row.adapter : "",
+      template: typeof row.template === "string" ? row.template : "",
+    } as DiscoveryQueryDraft;
+  });
+}
+
+function graphPatchArray(value: unknown): ProjectDraft["graph_patches"] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const row = objectValue(item) ?? {};
+    const match = objectValue(row.match) ?? {};
+    return {
+      ...row,
+      match: {
+        kind: typeof match.kind === "string" ? match.kind : "node_name",
+        equals: typeof match.equals === "string" ? match.equals : "",
+      },
+      set: objectValue(row.set) ?? {},
+    } as ProjectDraft["graph_patches"][number];
+  });
 }
 
 export function updateDraft<T extends object>(draft: T, path: Array<string | number>, value: unknown): T {
