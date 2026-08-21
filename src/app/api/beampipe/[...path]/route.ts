@@ -8,7 +8,8 @@ import {
 } from "@/server/auth/cookies";
 import { isTrustedBrowserRequest } from "@/server/auth/origin";
 import { beampipeUrl } from "@/server/beampipe/url";
-import { isTokenPair, type TokenPair } from "@/server/beampipe/token";
+import { refreshTokenPair } from "@/server/beampipe/refresh";
+import type { TokenPair } from "@/server/beampipe/token";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,9 @@ async function handler(request: Request, context: RouteContext) {
 
   const store = await cookies();
   const { path } = await context.params;
+  if (isSessionEndpoint(path)) {
+    return NextResponse.json({ message: "Use the dashboard session endpoint" }, { status: 404 });
+  }
   const upstreamPath = `/api/v2/${path.join("/")}`;
   const incomingUrl = new URL(request.url);
   const target = new URL(beampipeUrl(upstreamPath));
@@ -33,7 +37,7 @@ async function handler(request: Request, context: RouteContext) {
   if (upstream.status === 401) {
     const refreshToken = store.get(REFRESH_COOKIE)?.value;
     if (refreshToken) {
-      pair = await refresh(refreshToken);
+      pair = await refreshTokenPair(refreshToken);
       if (pair) upstream = await forward(request, target, pair.access_token, body);
     }
   }
@@ -45,11 +49,12 @@ async function handler(request: Request, context: RouteContext) {
   if (pair) {
     response.cookies.set(ACCESS_COOKIE, pair.access_token, accessCookieOptions);
     response.cookies.set(REFRESH_COOKIE, pair.refresh_token, refreshCookieOptions);
-  } else if (upstream.status === 401) {
-    response.cookies.delete(ACCESS_COOKIE);
-    response.cookies.delete(REFRESH_COOKIE);
   }
   return response;
+}
+
+function isSessionEndpoint(path: string[]) {
+  return path.length === 1 && ["login", "logout", "refresh"].includes(path[0]?.toLowerCase() ?? "");
 }
 
 function forward(request: Request, target: URL, token: string | undefined, body: ArrayBuffer | undefined) {
@@ -66,18 +71,6 @@ function forward(request: Request, target: URL, token: string | undefined, body:
     redirect: "manual",
     signal: AbortSignal.timeout(120_000),
   });
-}
-
-async function refresh(refreshToken: string): Promise<TokenPair | null> {
-  const response = await fetch(beampipeUrl("/api/v2/refresh"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-    cache: "no-store",
-  }).catch(() => null);
-  if (!response?.ok) return null;
-  const payload: unknown = await response.json().catch(() => null);
-  return isTokenPair(payload) ? payload : null;
 }
 
 function responseHeaders(headers: Headers) {
