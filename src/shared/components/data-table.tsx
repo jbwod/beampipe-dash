@@ -1,7 +1,7 @@
 import { cn } from "@/shared/lib/cn";
 
 export function TableFrame({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("overflow-x-auto border border-[var(--bp-border)]", className)}>{children}</div>;
+  return <div className={cn("w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain border border-[var(--bp-border)]", className)}>{children}</div>;
 }
 
 export function DataTable({ children, className }: { children: React.ReactNode; className?: string }) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { dashboardFetch } from "@/shared/lib/http";
 import type {
   DiagnosticsResponse,
@@ -84,14 +84,19 @@ export function useLedgerSnapshot(id: string, terminal = false) {
   return useQuery({ queryKey: ["execution-ledger", id], queryFn: () => dashboardFetch<LedgerSnapshot>(`/api/beampipe/executions/${id}/ledger-snapshot?include_manifest=true`), refetchInterval: terminal ? false : LIVE });
 }
 
-export function useSources(project?: string) {
-  const params = new URLSearchParams({ limit: "500" });
-  if (project) params.set("project_module", project);
-  return useQuery({
-    queryKey: ["sources", project ?? "all"],
-    queryFn: () => dashboardFetch<SourceRegistryRow[]>(`/api/beampipe/sources?${params}`),
+export function useSources(project?: string, pageSize = 200) {
+  const query = useInfiniteQuery({
+    queryKey: ["sources", project ?? "all", pageSize],
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ limit: String(pageSize), offset: String(pageParam) });
+      if (project) params.set("project_module", project);
+      return dashboardFetch<SourceRegistryRow[]>(`/api/beampipe/sources?${params}`);
+    },
+    getNextPageParam: (lastPage, pages) => lastPage.length === pageSize ? pages.reduce((count, page) => count + page.length, 0) : undefined,
     refetchInterval: 10_000,
   });
+  return { ...query, data: query.data?.pages.flat() };
 }
 
 export function useSource(id: string) {

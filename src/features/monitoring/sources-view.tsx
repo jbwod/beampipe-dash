@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
 import { DataTable, TableFrame, TableHead, Td, Th } from "@/shared/components/data-table";
+import { PaginationControls } from "@/shared/components/pagination-controls";
 import { EmptyRows, LiveIndicator, MetricCell, QueryFailure } from "@/shared/components/operator-ui";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { formatAge, shortId } from "@/shared/lib/time";
@@ -55,13 +56,13 @@ export function SourcesView() {
         <LiveIndicator fetching={sources.isFetching} label="live / 10s" />
       </div>
 
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><p className="pt-2 text-[10px] uppercase text-[var(--bp-subtle)]">{selected.length} selected / {rows.length} visible</p><SourceActions projects={projects.data ?? []} selected={selected} /></div>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><p className="pt-2 text-[10px] uppercase text-[var(--bp-subtle)]">{selected.length} selected / {rows.length} visible / {sources.data?.length ?? 0} loaded{sources.hasNextPage ? "+" : ""}</p><SourceActions projects={projects.data ?? []} selected={selected} /></div>
 
       {sources.isError ? <QueryFailure message="Source registry is unavailable" retry={() => sources.refetch()} /> : (
-        <TableFrame><DataTable className="min-w-[1180px]"><TableHead><tr><Th className="w-10"><SourceCheckbox checked={visibleSelected} label="Select visible sources" onChange={toggleVisible} /></Th><Th>Source / project</Th><Th className="w-[128px]">State</Th><Th className="w-[160px]">Last checked</Th><Th className="w-[160px]">Last attempted</Th><Th className="w-[140px]">Discovery sig</Th><Th className="w-[140px]">Executed sig</Th><Th className="w-[120px]">Stale after</Th></tr></TableHead><tbody>
+        <div className="border border-[var(--bp-border)]"><TableFrame className="border-0"><DataTable className="min-w-[1180px]"><TableHead><tr><Th className="w-10"><SourceCheckbox checked={visibleSelected} label="Select visible sources" onChange={toggleVisible} /></Th><Th>Source / project</Th><Th className="w-[128px]">State</Th><Th className="w-[160px]">Last checked</Th><Th className="w-[160px]">Last attempted</Th><Th className="w-[140px]">Discovery sig</Th><Th className="w-[140px]">Executed sig</Th><Th className="w-[120px]">Stale after</Th></tr></TableHead><tbody>
           {rows.map((source) => <tr className="hover:bg-[var(--bp-panel-soft)]" key={source.uuid}><Td><SourceCheckbox checked={selectedIds.has(source.uuid)} label={`Select ${source.source_identifier}`} onChange={(checked) => toggle(source.uuid, checked)} /></Td><Td><Link className="block truncate text-[var(--bp-cyan)] hover:underline" href={`/sources/${source.uuid}` as Route}>{source.source_identifier}</Link><p className="truncate text-[10px] text-[var(--bp-subtle)]">{source.project_module}</p></Td><Td><StatusBadge status={sourceState(source)} /></Td><Td><p>{formatAge(source.last_checked_at)}</p>{source.discovery_claim_expires_at ? <p className="text-[10px] text-[var(--bp-cyan)]">claim expires {formatAge(source.discovery_claim_expires_at)}</p> : null}</Td><Td className="text-[var(--bp-muted)]">{formatAge(source.last_attempted_at)}</Td><Td className="text-[10px] text-[var(--bp-muted)]">{shortId(source.discovery_signature, 12)}</Td><Td className="text-[10px] text-[var(--bp-muted)]">{shortId(source.last_executed_discovery_signature, 12)}</Td><Td className="tabular-nums text-[var(--bp-muted)]">{source.stale_after_hours == null ? "project default" : `${source.stale_after_hours}h`}</Td></tr>)}
           {!rows.length ? <tr><td colSpan={8}><EmptyRows message="no sources match these filters" /></td></tr> : null}
-        </tbody></DataTable></TableFrame>
+        </tbody></DataTable></TableFrame><PaginationControls hasNext={Boolean(sources.hasNextPage) && !sources.isFetchingNextPage} nextLabel={sources.isFetchingNextPage ? "Loading" : "Load more"} onNext={() => sources.fetchNextPage()} /></div>
       )}
     </div>
   );
