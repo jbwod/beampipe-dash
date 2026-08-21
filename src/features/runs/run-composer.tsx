@@ -14,7 +14,7 @@ import type { Execution, ExecutionCreatePayload, ExecutionPrepareResponse, Sourc
 import { useProjects, useSources } from "@/features/monitoring/queries";
 import { sourceState } from "@/features/monitoring/sources-view";
 import { useDeploymentProfiles } from "@/features/profiles/queries";
-import { createOrResumeExecution } from "./run-workflow";
+import { createOrResumeExecution, executionCreationKey } from "./run-workflow";
 
 const inputClass = "h-9 w-full min-w-0 border border-[var(--bp-border-soft)] bg-black px-2.5 text-xs";
 
@@ -64,9 +64,10 @@ export function RunComposer() {
 
   const create = useMutation({
     mutationFn: async () => {
+      const creationKey = executionCreationKey(fingerprint);
       return createOrResumeExecution({
         existing: createdRunRef.current,
-        create: () => dashboardFetch<Execution>("/api/beampipe/executions", { method: "POST", body: JSON.stringify(payload) }),
+        create: () => dashboardFetch<Execution>("/api/beampipe/executions", { method: "POST", headers: { "Idempotency-Key": creationKey }, body: JSON.stringify(payload) }),
         start: startImmediately
           ? (run) => dashboardFetch(`/api/beampipe/executions/${run.uuid}/execute`, { method: "POST", body: JSON.stringify({ do_stage: doStage, do_submit: doSubmit }) })
           : undefined,
@@ -131,7 +132,7 @@ export function RunComposer() {
 
         {previewCurrent ? <Preview preview={previewCurrent} /> : <div className="grid min-h-40 place-items-center px-4 text-center text-[10px] leading-5 text-[var(--bp-subtle)]">[ validate the exact selection before creating its ledger record ]</div>}
 
-        <div className="border-t border-[var(--bp-border)] p-4"><Toggle checked={startImmediately} label="Start immediately after creation" onChange={setStartImmediately} />{startImmediately ? <div className="mt-3 grid grid-cols-2 gap-3 border-l-2 border-[var(--bp-border)] pl-3"><Toggle checked={doStage} label="Stage inputs" onChange={setDoStage} /><Toggle checked={doSubmit} label="Submit backend" onChange={setDoSubmit} /></div> : null}<button className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 border border-[var(--bp-green)] text-[10px] uppercase text-[var(--bp-green)] disabled:cursor-not-allowed disabled:opacity-40" disabled={!canCreate} onClick={() => create.mutate()} type="button">{create.isPending ? createdRun ? "Retrying start" : "Creating execution" : createdRun ? <><Play className="size-3.5" />Retry existing run</> : startImmediately ? <><Play className="size-3.5" />Create + start</> : <><ArrowRight className="size-3.5" />Create pending run</>}</button>{create.isError ? <p className="mt-3 text-[10px] leading-5 text-[var(--bp-red)]">! {create.error.message}{createdRun ? ` The execution ${shortId(createdRun.uuid)} was created; retry will reuse it.` : ""}</p> : null}</div>
+        <div className="border-t border-[var(--bp-border)] p-4"><Toggle checked={startImmediately} disabled={Boolean(createdRun)} label="Start immediately after creation" onChange={setStartImmediately} />{startImmediately ? <div className="mt-3 grid grid-cols-2 gap-3 border-l-2 border-[var(--bp-border)] pl-3"><Toggle checked={doStage} disabled={Boolean(createdRun)} label="Stage inputs" onChange={setDoStage} /><Toggle checked={doSubmit} disabled={Boolean(createdRun)} label="Submit backend" onChange={setDoSubmit} /></div> : null}<button className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 border border-[var(--bp-green)] text-[10px] uppercase text-[var(--bp-green)] disabled:cursor-not-allowed disabled:opacity-40" disabled={!canCreate} onClick={() => create.mutate()} type="button">{create.isPending ? createdRun ? "Retrying start" : "Creating execution" : createdRun ? <><Play className="size-3.5" />Retry existing run</> : startImmediately ? <><Play className="size-3.5" />Create + start</> : <><ArrowRight className="size-3.5" />Create pending run</>}</button>{create.isError ? <p className="mt-3 text-[10px] leading-5 text-[var(--bp-red)]">! {create.error.message}{createdRun ? ` The execution ${shortId(createdRun.uuid)} was created; retry will reuse it.` : ""}</p> : null}</div>
       </aside>
     </div>
   </div>;
@@ -141,12 +142,12 @@ function SourceRow({ checked, onChange, source }: { checked: boolean; onChange: 
   return <label className="grid min-h-16 cursor-pointer grid-cols-[32px_minmax(0,1fr)] items-center border-b border-[var(--bp-border-soft)] px-3 hover:bg-[var(--bp-panel-soft)] sm:min-h-12 sm:grid-cols-[32px_minmax(0,1fr)_120px_120px]"><SourceCheck checked={checked} label={`Select ${source.source_identifier}`} onChange={onChange} /><span className="min-w-0"><span className="block truncate text-xs text-[var(--bp-highlight)]">{source.source_identifier}</span><span className="block truncate text-[10px] text-[var(--bp-subtle)]">{shortId(source.discovery_signature, 12)}</span></span><span className="col-start-2 flex min-w-0 gap-2 pb-2 sm:contents sm:p-0"><StatusBadge status={source.discovery_signature ? source.discovery_claim_token ? "discovering" : "complete" : "incomplete"} /><StatusBadge status={source.workflow_run_pending ? "pending" : sourceState(source)} /></span></label>;
 }
 
-function SourceCheck({ checked, label, onChange }: { checked: boolean; label: string; onChange: (checked: boolean) => void }) {
-  return <Checkbox.Root aria-label={label} checked={checked} className="grid size-4 place-items-center border border-[var(--bp-border)] bg-black text-black data-checked:border-[var(--bp-green)] data-checked:bg-[var(--bp-green)]" onCheckedChange={(value) => onChange(value === true)}><Checkbox.Indicator><Check className="size-3" /></Checkbox.Indicator></Checkbox.Root>;
+function SourceCheck({ checked, disabled = false, label, onChange }: { checked: boolean; disabled?: boolean; label: string; onChange: (checked: boolean) => void }) {
+  return <Checkbox.Root aria-label={label} checked={checked} className="grid size-4 place-items-center border border-[var(--bp-border)] bg-black text-black data-checked:border-[var(--bp-green)] data-checked:bg-[var(--bp-green)] disabled:opacity-40" disabled={disabled} onCheckedChange={(value) => onChange(value === true)}><Checkbox.Indicator><Check className="size-3" /></Checkbox.Indicator></Checkbox.Root>;
 }
 
-function Toggle({ checked, label, onChange }: { checked: boolean; label: string; onChange: (checked: boolean) => void }) {
-  return <label className="flex min-h-8 items-center gap-2 text-xs"><SourceCheck checked={checked} label={label} onChange={onChange} /><span>{label}</span></label>;
+function Toggle({ checked, disabled = false, label, onChange }: { checked: boolean; disabled?: boolean; label: string; onChange: (checked: boolean) => void }) {
+  return <label className={`flex min-h-8 items-center gap-2 text-xs ${disabled ? "text-[var(--bp-subtle)]" : ""}`}><SourceCheck checked={checked} disabled={disabled} label={label} onChange={onChange} /><span>{label}</span></label>;
 }
 
 function Preview({ preview }: { preview: ExecutionPrepareResponse }) {

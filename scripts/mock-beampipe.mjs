@@ -184,7 +184,10 @@ http.createServer(async (request, response) => {
     const blocked = identifiers.includes("J100102-270112");
     return json(response, { project_module: payload.project_module ?? "wallaby_hires", valid: !blocked, errors: blocked ? ["Source J100102-270112: Discovery is still in progress for this source (active lease). Wait and retry."] : [], total_datasets: blocked ? 0 : identifiers.length * 2, sources_preview: blocked ? [] : identifiers.map((source_identifier) => ({ source_identifier, sbid_count: 2, dataset_count: 2 })) });
   }
-  if (path === "/api/v2/executions" && request.method === "POST") return json(response, { ...runs[0], uuid: "019b37af-4f6c-7d7a-9a73-555555555555", status: "pending", execution_phase: null, control_phase: "created", scheduler_name: null, daliuge_session_id: null, created_at: iso() }, 201);
+  if (path === "/api/v2/executions" && request.method === "POST") {
+    if (!request.headers["idempotency-key"]) return json(response, { message: "missing Idempotency-Key" }, 400);
+    return json(response, { ...runs[0], uuid: "019b37af-4f6c-7d7a-9a73-555555555555", status: "pending", execution_phase: null, control_phase: "created", scheduler_name: null, daliuge_session_id: null, created_at: iso() }, 201);
+  }
   if (path === "/api/v2/executions") {
     let items = runs;
     const project = url.searchParams.get("project_module");

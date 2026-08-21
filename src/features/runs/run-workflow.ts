@@ -1,5 +1,7 @@
 import type { Execution } from "@/shared/types/beampipe";
 
+const CREATION_KEY_STORAGE = "beampipe:execution-create";
+
 export interface CreateExecutionStep {
   existing: Execution | null;
   create: () => Promise<Execution>;
@@ -17,4 +19,30 @@ export async function createOrResumeExecution(step: CreateExecutionStep) {
   if (!step.existing) step.onCreated?.(run);
   if (step.start) await step.start(run);
   return run;
+}
+
+export function executionCreationKey(
+  fingerprint: string,
+  storage: Pick<Storage, "getItem" | "setItem"> = window.sessionStorage,
+  randomUuid: () => string = () => crypto.randomUUID(),
+) {
+  const stored = parseStoredKey(storage.getItem(CREATION_KEY_STORAGE));
+  if (stored?.fingerprint === fingerprint) return stored.key;
+  const key = randomUuid();
+  storage.setItem(CREATION_KEY_STORAGE, JSON.stringify({ fingerprint, key }));
+  return key;
+}
+
+function parseStoredKey(value: string | null): { fingerprint: string; key: string } | null {
+  if (!value) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object") return null;
+    const candidate = parsed as { fingerprint?: unknown; key?: unknown };
+    if (typeof candidate.fingerprint !== "string" || typeof candidate.key !== "string") return null;
+    if (!/^[\x21-\x7e]{1,128}$/.test(candidate.key)) return null;
+    return { fingerprint: candidate.fingerprint, key: candidate.key };
+  } catch {
+    return null;
+  }
 }

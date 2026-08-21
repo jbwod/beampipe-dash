@@ -59,11 +59,13 @@ function isSessionEndpoint(path: string[]) {
 
 function forward(request: Request, target: URL, token: string | undefined, body: ArrayBuffer | undefined) {
   const contentType = request.headers.get("content-type");
+  const idempotencyKey = request.headers.get("idempotency-key");
   return fetch(target, {
     method: request.method,
     headers: {
       Accept: request.headers.get("accept") ?? "application/json",
       ...(contentType ? { "Content-Type": contentType } : {}),
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body,

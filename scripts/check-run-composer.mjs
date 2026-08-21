@@ -40,9 +40,11 @@ try {
   await page.getByRole("button", { name: "Create + start" }).click();
   const createResponse = await createResponsePromise;
   const createPayload = createResponse.request().postDataJSON();
+  const creationKey = createResponse.request().headers()["idempotency-key"];
   assert(createResponse.status() === 201, `execution create returned ${createResponse.status()}`);
   assert(createPayload.sources.length === 2, "execution create did not retain both sources");
   assert(createPayload.deployment_profile_id === "019b37af-c000-7000-8000-000000000001", "execution was not pinned to the selected profile");
+  assert(typeof creationKey === "string" && creationKey.length > 0, "execution create omitted its stable idempotency key");
   const executeResponse = await executeResponsePromise;
   const executePayload = executeResponse.request().postDataJSON();
   assert(executeResponse.status() === 202, `execution start returned ${executeResponse.status()}`);
