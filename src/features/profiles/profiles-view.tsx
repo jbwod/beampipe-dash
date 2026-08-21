@@ -15,7 +15,7 @@ import { createDeploymentProfile, profileFromResponse, validateDeploymentProfile
 import { DeploymentProfileEditor } from "./profile-editor";
 import { useDeploymentProfiles } from "./queries";
 
-type ConnectionResult = { kind: "rest_remote"; data: DaliugeInspectResponse } | { kind: "slurm_remote"; data: SchedulerStatusResponse };
+type ConnectionResult = { kind: "rest_remote"; data: { inspect: DaliugeInspectResponse; sessions: unknown } } | { kind: "slurm_remote"; data: SchedulerStatusResponse };
 
 export function ProfilesView() {
   const profiles = useDeploymentProfiles();
@@ -83,9 +83,17 @@ function ProfileManager({ profiles }: { profiles: DeploymentProfileResponse[] })
   });
 
   const check = useMutation({
-    mutationFn: async (): Promise<ConnectionResult> => draft.deployment.kind === "rest_remote"
-      ? { kind: "rest_remote", data: await dashboardFetch<DaliugeInspectResponse>(`/api/beampipe/daliuge/inspect?profile=${encodeURIComponent(draft.name)}`) }
-      : { kind: "slurm_remote", data: await dashboardFetch<SchedulerStatusResponse>(`/api/beampipe/scheduler/status?profile=${encodeURIComponent(draft.name)}`) },
+    mutationFn: async (): Promise<ConnectionResult> => {
+      if (draft.deployment.kind === "slurm_remote") {
+        return { kind: "slurm_remote", data: await dashboardFetch<SchedulerStatusResponse>(`/api/beampipe/scheduler/status?profile=${encodeURIComponent(draft.name)}`) };
+      }
+      const profile = encodeURIComponent(draft.name);
+      const [inspect, sessions] = await Promise.all([
+        dashboardFetch<DaliugeInspectResponse>(`/api/beampipe/daliuge/inspect?profile=${profile}`),
+        dashboardFetch<unknown>(`/api/beampipe/daliuge/sessions?profile=${profile}`),
+      ]);
+      return { kind: "rest_remote", data: { inspect, sessions } };
+    },
     onSuccess: setResult,
   });
 
@@ -171,7 +179,7 @@ function RuntimeCheck({ icon, label, status, value }: { icon: React.ReactNode; l
 }
 
 function ConnectionPanel({ result }: { result: ConnectionResult }) {
-  return <section className="border-t border-[var(--bp-border)]"><SectionHeading detail={`checked ${formatDateTime(new Date().toISOString())}`} title="Connectivity result" /><div className="grid divide-y divide-[var(--bp-border-soft)] xl:grid-cols-2 xl:divide-x xl:divide-y-0">{result.kind === "rest_remote" ? <><JsonResult label="Translator" value={result.data.translator} /><JsonResult label="Manager" value={result.data.manager} /></> : <><JsonResult label="SSH + Slurm" value={result.data.connectivity} /><div className="min-w-0 p-3"><p className="mb-2 text-[10px] uppercase text-[var(--bp-subtle)]">Rendered resource request</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap border border-[var(--bp-border-soft)] bg-black p-3 text-[10px] leading-5 text-[var(--bp-green)]">{result.data.rendered_resource_request}</pre></div></>}</div></section>;
+  return <section className="border-t border-[var(--bp-border)]"><SectionHeading detail={`checked ${formatDateTime(new Date().toISOString())}`} title="Connectivity result" /><div className="grid divide-y divide-[var(--bp-border-soft)] xl:grid-cols-2 xl:divide-x xl:divide-y-0">{result.kind === "rest_remote" ? <><JsonResult label="Translator" value={result.data.inspect.translator} /><JsonResult label="Manager" value={result.data.inspect.manager} /><div className="border-t border-[var(--bp-border-soft)] xl:col-span-2"><JsonResult label="DALiuGE sessions" value={result.data.sessions} /></div></> : <><JsonResult label="SSH + Slurm" value={result.data.connectivity} /><div className="min-w-0 p-3"><p className="mb-2 text-[10px] uppercase text-[var(--bp-subtle)]">Rendered resource request</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap border border-[var(--bp-border-soft)] bg-black p-3 text-[10px] leading-5 text-[var(--bp-green)]">{result.data.rendered_resource_request}</pre></div></>}</div></section>;
 }
 
 function JsonResult({ label, value }: { label: string; value: unknown }) {

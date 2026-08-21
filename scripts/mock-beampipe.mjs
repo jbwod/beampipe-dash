@@ -137,6 +137,7 @@ http.createServer(async (request, response) => {
   if (path === "/api/v2/projects") return json(response, [{ project_id: "wallaby_hires", version: 3, active: true }, { project_id: "hipass_demo", version: 1, active: true }]);
   if (path === "/api/v2/projects/contracts") return json(response, [{ project_id: "wallaby_hires", valid: true, errors: [], warnings: [], spec_sha256: "abc" }, { project_id: "hipass_demo", valid: true, errors: [], warnings: [{ severity: "warning", code: "graph.test", path: "graph", message: "Demo graph" }], spec_sha256: "def" }]);
   if (path === "/api/v2/projects/contracts/wallaby_hires") return json(response, { project_id: "wallaby_hires", valid: true, errors: [], warnings: [], spec_sha256: projectRows[0].spec_sha256 });
+  if (path === "/api/v2/projects/wallaby_hires/events") return json(response, events);
   if (path === "/api/v2/project-configs" && request.method === "POST") return json(response, { project_id: "wallaby_hires", valid: true, errors: [], warnings: [{ severity: "warning", code: "demo.saved", path: "metadata.id", message: "Mock project revision accepted" }], spec_sha256: "new-demo-sha" }, 201);
   if (path === "/api/v2/project-configs/wallaby_hires/versions") return json(response, projectRows);
   if (path === "/api/v2/project-configs/wallaby_hires") return json(response, projectRows[0]);
@@ -158,6 +159,7 @@ http.createServer(async (request, response) => {
     return json(response, profile);
   }
   if (path === "/api/v2/daliuge/inspect") return json(response, { profile: url.searchParams.get("profile"), translator: { status: "reachable", version: "1.8.0", endpoint: "http://translator:8084" }, manager: { status: "reachable", sessions: 2, endpoint: "http://dim:8001" } });
+  if (path === "/api/v2/daliuge/sessions") return json(response, [{ sessionId: "bp-019b37af", status: "RUNNING" }, { sessionId: "bp-complete", status: "FINISHED" }]);
   if (path === "/api/v2/scheduler/status") return json(response, { profile: url.searchParams.get("profile"), connectivity: { status: "reachable", login_node: "setonix.pawsey.org.au", scheduler: "slurm", key_source: "file", known_hosts: "verified" }, resource_request: { partition: "work", nodes: 2, tasks: 2, cpus_per_task: 8, wall_time_minutes: 50 }, rendered_resource_request: "#SBATCH --account=pawsey0411\n#SBATCH --partition=work\n#SBATCH --nodes=2\n#SBATCH --ntasks=2\n#SBATCH --cpus-per-task=8\n#SBATCH --time=00:50:00" });
   if (path === "/api/v2/sources/bulk" && request.method === "POST") return json(response, { items: sources.slice(0, 2), total: 2 });
   if (path === "/api/v2/sources/discover" && request.method === "POST") return json(response, { project_module: "wallaby_hires", marked_count: 2, source_identifiers: sources.slice(0, 2).map((item) => item.source_identifier), message: "Sources marked for rediscovery" });

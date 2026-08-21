@@ -8,7 +8,7 @@ import { Braces, Check, Copy, FilePlus2, History, Save } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { parse, stringify } from "yaml";
-import { QueryFailure } from "@/shared/components/operator-ui";
+import { EmptyRows, QueryFailure, SectionHeading } from "@/shared/components/operator-ui";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { dashboardFetch } from "@/shared/lib/http";
 import { useUnsavedNavigationGuard } from "@/shared/hooks/use-unsaved-navigation-guard";
@@ -17,7 +17,7 @@ import type { ProjectConfigRow, ValidationReport } from "@/shared/types/beampipe
 import { useCurrentUser, useProjects } from "@/features/monitoring/queries";
 import { createProjectDraft, isProjectDraft, normalizeProjectDraft, type ProjectDraft, updateDraft, validateProjectDraft } from "./project-draft";
 import { ProjectVisualEditor } from "./project-visual-editor";
-import { useProjectConfig, useProjectContract, useProjectVersions } from "./queries";
+import { useProjectConfig, useProjectContract, useProjectEvents, useProjectVersions } from "./queries";
 
 const editorTheme = EditorView.theme({
   "&": { backgroundColor: "#050505", color: "#e6edf3", fontSize: "12px" },
@@ -49,6 +49,7 @@ function ProjectStudioEditor({ activeConfig, selectedProject }: { activeConfig: 
   const projects = useProjects();
   const versions = useProjectVersions(selectedProject);
   const contract = useProjectContract(selectedProject);
+  const events = useProjectEvents(selectedProject);
   const currentUser = useCurrentUser();
   const initial = useMemo(() => activeConfig.data && isProjectDraft(activeConfig.data.spec)
     ? normalizeProjectDraft(activeConfig.data.spec)
@@ -159,6 +160,8 @@ function ProjectStudioEditor({ activeConfig, selectedProject }: { activeConfig: 
       </div>
 
       <div className="mt-4 grid gap-2 text-[10px] text-[var(--bp-subtle)] sm:grid-cols-3"><span className="inline-flex items-center gap-2"><History className="size-3 text-[var(--bp-cyan)]" />Active {activeConfig.data ? `v${activeConfig.data.version}` : "new"}</span><span>spec / {shortId(report?.spec_sha256 ?? activeConfig.data?.spec_sha256, 16)}</span><span className="text-right">{document.yaml.split(/\r?\n/).length} YAML lines</span></div>
+
+      {selectedProject ? <section className="mt-4 border border-[var(--bp-border)]"><SectionHeading detail="latest 50 immutable control-plane events" title="Project provenance" />{events.isError ? <QueryFailure message="Project provenance could not be loaded" retry={() => events.refetch()} /> : events.data?.length ? <div className="divide-y divide-[var(--bp-border-soft)]">{events.data.map((event) => <div className="grid min-w-0 gap-1 px-3 py-2.5 text-[10px] sm:grid-cols-[180px_minmax(0,1fr)_180px]" key={event.id}><span className="text-[var(--bp-cyan)]">{event.event_type}</span><span className="truncate text-[var(--bp-muted)]" title={JSON.stringify(event.payload)}>{event.actor ?? "system"}{event.source_identifier ? ` / ${event.source_identifier}` : ""} / {JSON.stringify(event.payload)}</span><span className="text-[var(--bp-subtle)] sm:text-right">{formatDateTime(event.occurred_at)}</span></div>)}</div> : <EmptyRows message="no project provenance recorded" />}</section> : null}
     </div>
   );
 }
