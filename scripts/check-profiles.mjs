@@ -4,6 +4,7 @@ import { confirmMutatingE2E } from "./confirm-e2e.mjs";
 confirmMutatingE2E();
 
 const baseUrl = process.env.BEAMPIPE_DASH_URL ?? "http://127.0.0.1:3100";
+const outputDir = process.env.BEAMPIPE_DASH_SCREENSHOT_DIR ?? "/tmp";
 const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -35,9 +36,9 @@ try {
   assert((await slurmCheckPromise).ok(), "Slurm connectivity check failed");
   await page.getByText(/#SBATCH --partition=work/).waitFor();
   await page.getByText("configured", { exact: true }).first().waitFor();
-  await page.screenshot({ path: "/private/tmp/beampipe-dash-profile-slurm-desktop.png", fullPage: false });
+  await page.screenshot({ path: `${outputDir}/beampipe-dash-profile-slurm-desktop.png`, fullPage: false });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: "/private/tmp/beampipe-dash-profile-slurm-mobile.png", fullPage: false });
+  await page.screenshot({ path: `${outputDir}/beampipe-dash-profile-slurm-mobile.png`, fullPage: false });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   assert(!overflow, "Slurm profile overflows the mobile viewport");
   await page.setViewportSize({ width: 1440, height: 1000 });

@@ -12,7 +12,7 @@ page.on("pageerror", (error) => errors.push(error.message));
 
 try {
   await page.goto(`${baseUrl}/runs/new?project=wallaby_hires&sources=J103729-261901%2CJ104059-270456`, { waitUntil: "domcontentloaded" });
-  await page.getByText("2 selected", { exact: true }).waitFor();
+  await page.getByText(/2 selected \/ \d+ loaded/).waitFor();
   assert((await page.getByLabel("Deployment profile").inputValue()).includes("019b37af-c000"), "default project profile was not pinned");
 
   let prepareResponse = page.waitForResponse((response) => response.request().method() === "POST" && response.url().endsWith("/api/beampipe/executions/prepare"));
