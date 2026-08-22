@@ -2,11 +2,12 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Copy, KeyRound, Plus, PlugZap, Save, ServerCog, ShieldCheck, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ActionDialog } from "@/shared/components/action-dialog";
 import { EmptyRows, LoadingRows, QueryFailure, SectionHeading } from "@/shared/components/operator-ui";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { dashboardFetch } from "@/shared/lib/http";
+import { useUnsavedNavigationGuard } from "@/shared/hooks/use-unsaved-navigation-guard";
 import { metricValue, parsePrometheus } from "@/shared/lib/prometheus";
 import { formatAge, formatDateTime, shortId } from "@/shared/lib/time";
 import type { DaliugeInspectResponse, DeploymentProfile, DeploymentProfileResponse, SchedulerStatusResponse } from "@/shared/types/beampipe";
@@ -42,14 +43,7 @@ function ProfileManager({ profiles }: { profiles: DeploymentProfileResponse[] })
   const selected = profiles.find((profile) => profile.uuid === selectedId) ?? null;
   const persisted = savedProfile?.uuid === selectedId ? savedProfile : selected;
   const isSuperuser = Boolean(currentUser.data?.is_superuser);
-
-  useEffect(() => {
-    const guard = (event: BeforeUnloadEvent) => {
-      if (dirty) event.preventDefault();
-    };
-    window.addEventListener("beforeunload", guard);
-    return () => window.removeEventListener("beforeunload", guard);
-  }, [dirty]);
+  const confirmNavigation = useUnsavedNavigationGuard(dirty, "Discard unsaved deployment profile changes?");
 
   const save = useMutation({
     mutationFn: () => dashboardFetch<DeploymentProfileResponse>(selectedId ? `/api/beampipe/deployment-profiles/${selectedId}` : "/api/beampipe/deployment-profiles", {
@@ -98,7 +92,7 @@ function ProfileManager({ profiles }: { profiles: DeploymentProfileResponse[] })
   });
 
   const select = (profile: DeploymentProfileResponse) => {
-    if (dirty && !window.confirm("Discard unsaved deployment profile changes?")) return;
+    if (!confirmNavigation()) return;
     const next = profileFromResponse(profile);
     setSelectedId(profile.uuid);
     setSavedProfile(profile);
@@ -108,12 +102,12 @@ function ProfileManager({ profiles }: { profiles: DeploymentProfileResponse[] })
   };
 
   const startNew = (kind: "rest_remote" | "slurm_remote") => {
-    if (dirty && !window.confirm("Discard unsaved deployment profile changes?")) return;
+    if (!confirmNavigation()) return;
     const next = createDeploymentProfile(kind);
     setSelectedId(null);
     setSavedProfile(null);
     setDraft(next);
-    setBaseline(JSON.stringify(next));
+    setBaseline("");
     setResult(null);
   };
 
@@ -122,7 +116,7 @@ function ProfileManager({ profiles }: { profiles: DeploymentProfileResponse[] })
     setSelectedId(null);
     setSavedProfile(null);
     setDraft(next);
-    setBaseline(JSON.stringify(next));
+    setBaseline("");
     setResult(null);
   };
 

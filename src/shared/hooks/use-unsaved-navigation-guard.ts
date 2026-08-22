@@ -9,6 +9,7 @@ export function useUnsavedNavigationGuard(active: boolean, message: string) {
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (!active) return;
       event.preventDefault();
+      event.returnValue = "";
     };
     const click = (event: MouseEvent) => {
       if (!active || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -21,11 +22,22 @@ export function useUnsavedNavigationGuard(active: boolean, message: string) {
         event.stopPropagation();
       }
     };
+    const navigate = (event: NavigateEvent) => {
+      if (!active
+        || event.navigationType !== "traverse"
+        || event.hashChange
+        || !event.destination.sameDocument
+        || event.destination.url === window.location.href) return;
+      if (!confirmNavigation()) event.preventDefault();
+    };
+    const navigationApi = "navigation" in window ? window.navigation : null;
     window.addEventListener("beforeunload", beforeUnload);
     document.addEventListener("click", click, true);
+    navigationApi?.addEventListener("navigate", navigate);
     return () => {
       window.removeEventListener("beforeunload", beforeUnload);
       document.removeEventListener("click", click, true);
+      navigationApi?.removeEventListener("navigate", navigate);
     };
   }, [active, confirmNavigation]);
 
