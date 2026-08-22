@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Execution, SourceRegistryRow } from "@/shared/types/beampipe";
+import type { Execution } from "@/shared/types/beampipe";
 import {
+  abandonExecutionCreationKey,
   consumeExecutionCreationKey,
   createOrResumeExecution,
   executionCreationFingerprint,
   executionCreationKey,
+  freezeExecutionCreationAttempt,
 } from "./run-workflow";
 
 const run = { uuid: "run-1" } as Execution;
@@ -63,12 +65,57 @@ describe("createOrResumeExecution", () => {
     expect(executionCreationKey("payload-a", storage, randomUuid)).toBe("key-2");
   });
 
-  it("changes the fingerprint when discovery or pinned revisions change", () => {
+  it("matches Core's canonical create request and ignores runtime revision drift", () => {
+    const payload = {
+      project_module: " wallaby ",
+      archive_name: " casda ",
+      sources: [{ source_identifier: " J1 ", sbids: [" 123 "] }, { source_identifier: "J2" }],
+      deployment_profile_id: null,
+      deployment_profile_name: " profile-a ",
+    };
+
+    expect(executionCreationFingerprint(payload)).toBe(JSON.stringify({
+      project_module: "wallaby",
+      sources: [
+        { source_identifier: "J1", sbids: ["123"] },
+        { source_identifier: "J2", sbids: null },
+      ],
+      archive_name: "casda",
+      deployment_profile_id: null,
+      deployment_profile_name: "profile-a",
+    }));
+    // Source signatures and pinned config/profile revisions are intentionally
+    // not inputs, so a retry after those background values drift is identical.
+    expect(executionCreationFingerprint(payload)).toBe(executionCreationFingerprint(structuredClone(payload)));
+  });
+
+  it("keeps an ambiguous attempt key through background drift and rotates for a body edit", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); },
+    };
+    const randomUuid = vi.fn().mockReturnValueOnce("key-1").mockReturnValueOnce("key-2");
     const payload = { project_module: "wallaby", archive_name: "casda", sources: [{ source_identifier: "J1" }] };
-    const source = { source_identifier: "J1", discovery_signature: "sig-1" } as SourceRegistryRow;
-    const initial = executionCreationFingerprint(payload, [source], 1, 2);
-    expect(executionCreationFingerprint(payload, [{ ...source, discovery_signature: "sig-2" }], 1, 2)).not.toBe(initial);
-    expect(executionCreationFingerprint(payload, [source], 2, 2)).not.toBe(initial);
-    expect(executionCreationFingerprint(payload, [source], 1, 3)).not.toBe(initial);
+    const fingerprint = executionCreationFingerprint(payload);
+
+    expect(executionCreationKey(fingerprint, storage, randomUuid)).toBe("key-1");
+    // A refetch may change discovery/config/profile revisions, but none of
+    // those values changes the canonical create request or its stored key.
+    expect(executionCreationKey(executionCreationFingerprint(payload), storage, randomUuid)).toBe("key-1");
+    abandonExecutionCreationKey(fingerprint, storage);
+    expect(executionCreationKey(executionCreationFingerprint({ ...payload, archive_name: "other" }), storage, randomUuid)).toBe("key-2");
+  });
+
+  it("freezes the submitted body for an ambiguous retry", () => {
+    const payload = { project_module: "wallaby", archive_name: "casda", sources: [{ source_identifier: "J1" }] };
+    const attempt = freezeExecutionCreationAttempt(payload);
+
+    payload.archive_name = "changed-by-the-editor";
+    payload.sources[0].source_identifier = "J2";
+
+    expect(attempt.payload).toEqual({ project_module: "wallaby", archive_name: "casda", sources: [{ source_identifier: "J1" }] });
+    expect(attempt.fingerprint).toBe(executionCreationFingerprint(attempt.payload));
   });
 });

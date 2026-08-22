@@ -1,4 +1,4 @@
-import type { Execution, ExecutionCreatePayload, SourceRegistryRow } from "@/shared/types/beampipe";
+import type { Execution, ExecutionCreatePayload } from "@/shared/types/beampipe";
 
 const CREATION_KEY_STORAGE = "beampipe:execution-create";
 
@@ -7,6 +7,11 @@ export interface CreateExecutionStep {
   create: () => Promise<Execution>;
   start?: (run: Execution) => Promise<unknown>;
   onCreated?: (run: Execution) => void;
+}
+
+export interface ExecutionCreationAttempt {
+  fingerprint: string;
+  payload: ExecutionCreatePayload;
 }
 
 /**
@@ -42,21 +47,38 @@ export function consumeExecutionCreationKey(
   if (stored?.fingerprint === fingerprint && stored.key === key) storage.removeItem(CREATION_KEY_STORAGE);
 }
 
+export function abandonExecutionCreationKey(
+  fingerprint: string,
+  storage: Pick<Storage, "getItem" | "removeItem"> = window.sessionStorage,
+) {
+  const stored = parseStoredKey(storage.getItem(CREATION_KEY_STORAGE));
+  if (stored?.fingerprint === fingerprint) storage.removeItem(CREATION_KEY_STORAGE);
+}
+
 export function executionCreationFingerprint(
   payload: ExecutionCreatePayload,
-  sources: SourceRegistryRow[],
-  projectConfigVersion: number | null,
-  profileRevision: number | null,
 ) {
+  // Keep this in lockstep with Core's canonical_execution_create. Runtime
+  // registry/config revisions are deliberately absent: they are resolved and
+  // pinned by Core, but are not part of the create request's idempotency hash.
   return JSON.stringify({
-    payload,
-    project_config_version: projectConfigVersion,
-    deployment_profile_revision: profileRevision,
-    source_discovery: sources.map((source) => ({
-      source_identifier: source.source_identifier,
-      discovery_signature: source.discovery_signature,
+    project_module: payload.project_module.trim(),
+    sources: payload.sources.map((source) => ({
+      source_identifier: source.source_identifier.trim(),
+      sbids: source.sbids?.map((sbid) => sbid.trim()) ?? null,
     })),
+    archive_name: payload.archive_name.trim(),
+    deployment_profile_id: payload.deployment_profile_id ?? null,
+    deployment_profile_name: payload.deployment_profile_name?.trim() ?? null,
   });
+}
+
+export function freezeExecutionCreationAttempt(payload: ExecutionCreatePayload): ExecutionCreationAttempt {
+  const frozenPayload = structuredClone(payload);
+  return {
+    fingerprint: executionCreationFingerprint(frozenPayload),
+    payload: frozenPayload,
+  };
 }
 
 function parseStoredKey(value: string | null): { fingerprint: string; key: string } | null {
