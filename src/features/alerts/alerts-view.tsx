@@ -27,16 +27,25 @@ const TRIGGER_KINDS = [
 const SEVERITIES = ["info", "warning", "critical"] as const;
 const TEMPLATES = ["generic", "slack", "pagerduty"] as const;
 
+export type SecretReferenceDraft = {
+  source: "env" | "file";
+  locator: string;
+  configured: boolean;
+};
+
 export type ChannelDraft = {
   name: string;
   kind: "webhook" | "email";
   url: string;
   template: string;
   headers: Array<{ key: string; value: string }>;
+  routingKeyRef: SecretReferenceDraft;
   smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
   from: string;
   to: string;
-  password: string;
+  passwordRef: SecretReferenceDraft;
   enabled: boolean;
 };
 
@@ -58,7 +67,21 @@ type RuleDraft = {
 type TestNotice = { deliveryId: string; status: string; error: string | null; summary: string };
 
 function emptyChannel(): ChannelDraft {
-  return { name: "", kind: "webhook", url: "", template: "slack", headers: [], smtpHost: "", from: "", to: "", password: "", enabled: true };
+  return {
+    name: "",
+    kind: "webhook",
+    url: "",
+    template: "slack",
+    headers: [],
+    routingKeyRef: emptySecretReference(),
+    smtpHost: "",
+    smtpPort: 587,
+    smtpUser: "",
+    from: "",
+    to: "",
+    passwordRef: emptySecretReference(),
+    enabled: true,
+  };
 }
 
 function emptyRule(project: string): RuleDraft {
@@ -70,10 +93,31 @@ function configString(config: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value : "";
 }
 
+function emptySecretReference(): SecretReferenceDraft {
+  return { source: "env", locator: "", configured: false };
+}
+
+function secretReferenceFromRow(row: NotificationChannel, refKey: string, legacyKey: string): SecretReferenceDraft {
+  const value = row.config[refKey];
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const env = configString(value as Record<string, unknown>, "env");
+    if (env) return { source: "env", locator: env === REDACTED ? "" : env, configured: true };
+    const file = configString(value as Record<string, unknown>, "file");
+    if (file) return { source: "file", locator: file === REDACTED ? "" : file, configured: true };
+  }
+  return {
+    source: "env",
+    locator: "",
+    configured: row.config[refKey] != null
+      || row.config[legacyKey] != null
+      || row.configured_fields.includes(refKey)
+      || row.configured_fields.includes(legacyKey),
+  };
+}
+
 export function channelFromRow(row: NotificationChannel): ChannelDraft {
   const config = row.config ?? {};
   const url = configString(config, "url");
-  const password = configString(config, "password");
   const headers = config.headers && typeof config.headers === "object" && !Array.isArray(config.headers)
     ? Object.entries(config.headers as Record<string, unknown>).map(([key, value]) => ({ key, value: typeof value === "string" ? value : "" }))
     : [];
@@ -84,10 +128,13 @@ export function channelFromRow(row: NotificationChannel): ChannelDraft {
     url: url === REDACTED ? "" : url,
     template: configString(config, "template") || "generic",
     headers: headers.map((header) => ({ ...header, value: header.value === REDACTED ? "" : header.value })),
+    routingKeyRef: secretReferenceFromRow(row, "routing_key_ref", "routing_key"),
     smtpHost: configString(config, "smtp_host"),
+    smtpPort: typeof config.port === "number" ? config.port : 587,
+    smtpUser: configString(config, "user"),
     from: configString(config, "from"),
     to,
-    password: password === REDACTED ? "" : password,
+    passwordRef: secretReferenceFromRow(row, "password_ref", "password"),
     enabled: row.enabled,
   };
 }
@@ -114,10 +161,16 @@ export function channelConfigPayload(draft: ChannelDraft, existing?: Notificatio
   if (draft.kind === "email") {
     const config: Record<string, unknown> = {
       smtp_host: draft.smtpHost.trim(),
-      from: draft.from.trim() || undefined,
+      port: draft.smtpPort,
       to: draft.to.split(",").map((item) => item.trim()).filter(Boolean),
     };
-    if (draft.password.trim()) config.password = draft.password.trim();
+    if (draft.from.trim()) config.from = draft.from.trim();
+    if (draft.smtpUser.trim()) config.user = draft.smtpUser.trim();
+    const passwordRef = secretReferencePayload(draft.passwordRef);
+    if (passwordRef) {
+      config.password_ref = passwordRef;
+      if (existing?.configured_fields.includes("password")) config.password = null;
+    }
     return config;
   }
   const draftHeaderKeys = new Set(draft.headers.map((header) => header.key.trim()).filter(Boolean));
@@ -131,7 +184,40 @@ export function channelConfigPayload(draft: ChannelDraft, existing?: Notificatio
   const config: Record<string, unknown> = { template: draft.template };
   if (draft.url.trim()) config.url = draft.url.trim();
   if (Object.keys(headers).length) config.headers = headers;
+  if (draft.template === "pagerduty") {
+    const routingKeyRef = secretReferencePayload(draft.routingKeyRef);
+    if (routingKeyRef) {
+      config.routing_key_ref = routingKeyRef;
+      if (existing?.configured_fields.includes("routing_key")) config.routing_key = null;
+    }
+  }
   return config;
+}
+
+function secretReferencePayload(reference: SecretReferenceDraft) {
+  const locator = reference.locator.trim();
+  return locator ? { [reference.source]: locator } : null;
+}
+
+export function channelDraftErrors(draft: ChannelDraft, editing = false) {
+  const errors: string[] = [];
+  if (!draft.name.trim()) errors.push("Channel name is required");
+  if (draft.kind === "webhook") {
+    if (!editing && !draft.url.trim()) errors.push("Webhook URL is required");
+    if (draft.template === "pagerduty" && !draft.routingKeyRef.locator.trim() && !draft.routingKeyRef.configured) {
+      errors.push("PagerDuty routing key reference is required");
+    }
+    return errors;
+  }
+  const recipients = draft.to.split(",").map((item) => item.trim()).filter(Boolean);
+  if (!draft.smtpHost.trim()) errors.push("SMTP host is required");
+  if (!Number.isInteger(draft.smtpPort) || draft.smtpPort < 1 || draft.smtpPort > 65_535) errors.push("SMTP port must be between 1 and 65535");
+  if (!recipients.length) errors.push("At least one email recipient is required");
+  const hasUser = Boolean(draft.smtpUser.trim());
+  const hasPassword = Boolean(draft.passwordRef.locator.trim() || draft.passwordRef.configured);
+  if (hasUser && !hasPassword) errors.push("SMTP password reference is required when a user is set");
+  if (!hasUser && hasPassword) errors.push("SMTP user is required when a password reference is configured");
+  return errors;
 }
 
 function triggerConfigPayload(draft: RuleDraft) {
@@ -159,6 +245,19 @@ function payloadSummary(payload: unknown) {
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="block min-w-0"><span className="mb-1.5 block text-[10px] uppercase text-[var(--bp-subtle)]">{label}</span>{children}</label>;
+}
+
+function SecretReferenceFields({
+  label,
+  reference,
+  onChange,
+}: {
+  label: string;
+  reference: SecretReferenceDraft;
+  onChange: (reference: SecretReferenceDraft) => void;
+}) {
+  const locatorLabel = reference.source === "env" ? `${label} environment variable` : `${label} file path`;
+  return <div className="grid gap-3 sm:grid-cols-2"><Field label={`${label} source`}><select className={inputClass} onChange={(event) => onChange({ ...reference, source: event.target.value === "file" ? "file" : "env" })} value={reference.source}><option value="env">environment variable</option><option value="file">file path</option></select></Field><Field label={locatorLabel}><input autoComplete="off" className={inputClass} onChange={(event) => onChange({ ...reference, locator: event.target.value })} placeholder={reference.configured ? "leave blank to keep configured reference" : reference.source === "env" ? "SECRET_ENV_NAME" : "/run/secrets/name"} value={reference.locator} /></Field>{reference.configured && !reference.locator ? <p className="text-[10px] text-[var(--bp-green)] sm:col-span-2">A secret reference is already configured; leave blank to retain it.</p> : null}</div>;
 }
 
 export function AlertsView() {
@@ -290,8 +389,7 @@ export function AlertsView() {
     }));
   };
 
-  const webhookCreateBlocked = !editingChannel && channelDraft.kind === "webhook" && !channelDraft.url.trim();
-  const emailCreateBlocked = channelDraft.kind === "email" && !channelDraft.smtpHost.trim();
+  const channelErrors = channelDraftErrors(channelDraft, Boolean(editingChannel));
 
   return (
     <div className="p-4 sm:p-6">
@@ -413,6 +511,7 @@ export function AlertsView() {
                   {TEMPLATES.map((template) => <option key={template} value={template}>{template}</option>)}
                 </select>
               </Field>
+              {channelDraft.template === "pagerduty" ? <SecretReferenceFields label="Routing key" onChange={(routingKeyRef) => setChannelDraft((current) => ({ ...current, routingKeyRef }))} reference={channelDraft.routingKeyRef} /> : null}
               <div>
                 <p className="mb-1.5 text-[10px] uppercase text-[var(--bp-subtle)]">Headers</p>
                 {channelDraft.headers.map((header, index) => (
@@ -427,17 +526,22 @@ export function AlertsView() {
             </>
           ) : (
             <>
-              <Field label="SMTP host"><input className={inputClass} onChange={(event) => setChannelDraft((current) => ({ ...current, smtpHost: event.target.value }))} value={channelDraft.smtpHost} /></Field>
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px]">
+                <Field label="SMTP host"><input className={inputClass} onChange={(event) => setChannelDraft((current) => ({ ...current, smtpHost: event.target.value }))} value={channelDraft.smtpHost} /></Field>
+                <Field label="SMTP port"><input className={inputClass} max={65_535} min={1} onChange={(event) => setChannelDraft((current) => ({ ...current, smtpPort: Number(event.target.value) }))} type="number" value={channelDraft.smtpPort} /></Field>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="From"><input className={inputClass} onChange={(event) => setChannelDraft((current) => ({ ...current, from: event.target.value }))} value={channelDraft.from} /></Field>
                 <Field label="To"><input className={inputClass} onChange={(event) => setChannelDraft((current) => ({ ...current, to: event.target.value }))} placeholder="ops@example.test" value={channelDraft.to} /></Field>
               </div>
-              <Field label="Password"><input autoComplete="new-password" className={inputClass} onChange={(event) => setChannelDraft((current) => ({ ...current, password: event.target.value }))} placeholder={editingChannel ? "leave blank to keep stored password" : "or use an env ref in Core"} type="password" value={channelDraft.password} /></Field>
+              <Field label="SMTP user"><input autoComplete="username" className={inputClass} onChange={(event) => setChannelDraft((current) => ({ ...current, smtpUser: event.target.value }))} value={channelDraft.smtpUser} /></Field>
+              <SecretReferenceFields label="Password" onChange={(passwordRef) => setChannelDraft((current) => ({ ...current, passwordRef }))} reference={channelDraft.passwordRef} />
             </>
           )}
+          {channelErrors.length ? <div className="border-l-2 border-[var(--bp-red)] px-3 py-1 text-[10px] leading-5 text-[var(--bp-red)]">{channelErrors.map((error) => <p key={error}>! {error}</p>)}</div> : null}
           <div className="flex justify-end gap-2 pt-2">
             <button className="h-8 border border-[var(--bp-border)] px-3 text-[10px] uppercase text-[var(--bp-muted)]" onClick={() => setChannelOpen(false)} type="button">Back</button>
-            <button className="h-8 border border-[var(--bp-green)] px-3 text-[10px] uppercase text-[var(--bp-green)] disabled:opacity-40" disabled={!isSuperuser || saveChannel.isPending || !channelDraft.name.trim() || webhookCreateBlocked || emailCreateBlocked} onClick={() => saveChannel.mutate()} type="button">{saveChannel.isPending ? "Saving" : editingChannel ? "Save channel" : "Create channel"}</button>
+            <button className="h-8 border border-[var(--bp-green)] px-3 text-[10px] uppercase text-[var(--bp-green)] disabled:opacity-40" disabled={!isSuperuser || saveChannel.isPending || channelErrors.length > 0} onClick={() => saveChannel.mutate()} type="button">{saveChannel.isPending ? "Saving" : editingChannel ? "Save channel" : "Create channel"}</button>
           </div>
         </div>
       </ActionDialog>
