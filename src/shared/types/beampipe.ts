@@ -20,6 +20,12 @@ export interface CurrentUser {
   is_superuser: boolean;
 }
 
+export interface OutputVerificationPolicy {
+  required: boolean;
+  inventory_schema: string;
+  [key: string]: unknown;
+}
+
 export interface ReadyStatus {
   status: string;
   service: string;
@@ -47,6 +53,8 @@ export interface Execution {
   daliuge_session_id: string | null;
   daliuge_state: string | null;
   output_state: string | null;
+  output_verification_required: boolean;
+  output_verification_policy: OutputVerificationPolicy;
   terminal_outcome: string | null;
   failure_class: string | null;
   last_error: string | null;

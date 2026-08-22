@@ -12,7 +12,7 @@ import { formatAge, formatDateTime, formatSeconds, shortId } from "@/shared/lib/
 import type { ExecutionArtifact, ExecutionObservation, ProvenanceEvent } from "@/shared/types/beampipe";
 import { isTerminal, useExecution, useExecutionArtifacts, useExecutionEvents, useExecutionObservations, useExecutionStatus, useExecutionSummary, useLedgerSnapshot } from "@/features/monitoring/queries";
 import { RunActions } from "./run-actions";
-import { resolveDaliugeState } from "./run-state";
+import { resolveDaliugeState, resolveOutputState } from "./run-state";
 
 const tabClass = "h-9 shrink-0 border-r border-[var(--bp-border-soft)] px-3 text-[10px] uppercase text-[var(--bp-muted)] hover:text-[var(--bp-text)] data-active:bg-[var(--bp-panel-soft)] data-active:text-[var(--bp-cyan)]";
 const panelClass = "outline-none [[hidden]]:hidden";
@@ -57,7 +57,7 @@ export function RunExplorer({ id }: { id: string }) {
             <MetricCell label="submission" value={<StatusBadge status={current?.submission_state ?? run.data.submission_state} />} />
             <MetricCell label="scheduler" value={<StatusBadge status={current?.slurm_state ?? current?.scheduler_state ?? run.data.scheduler_state ?? run.data.scheduler_name} />} />
             <MetricCell label="DALiuGE" value={<StatusBadge status={resolveDaliugeState(current, run.data.daliuge_state)} />} />
-            <MetricCell label="output" value={<StatusBadge status={current?.output_state ?? run.data.output_state} />} />
+            <MetricCell label="output" value={<StatusBadge status={resolveOutputState(current?.output_state, run.data)} />} />
             <MetricCell label="terminal" value={<StatusBadge status={current?.terminal_outcome ?? run.data.terminal_outcome} />} />
           </section>
 
