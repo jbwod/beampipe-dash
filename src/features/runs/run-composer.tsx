@@ -14,7 +14,12 @@ import type { Execution, ExecutionCreatePayload, ExecutionPrepareResponse, Sourc
 import { useProjects, useSources } from "@/features/monitoring/queries";
 import { sourceState } from "@/features/monitoring/sources-view";
 import { useDeploymentProfiles } from "@/features/profiles/queries";
-import { createOrResumeExecution, executionCreationKey } from "./run-workflow";
+import {
+  consumeExecutionCreationKey,
+  createOrResumeExecution,
+  executionCreationFingerprint,
+  executionCreationKey,
+} from "./run-workflow";
 
 const inputClass = "h-9 w-full min-w-0 border border-[var(--bp-border-soft)] bg-black px-2.5 text-xs";
 
@@ -39,6 +44,7 @@ export function RunComposer() {
   const [validatedFingerprint, setValidatedFingerprint] = useState<string | null>(null);
   const [createdRun, setCreatedRun] = useState<Execution | null>(null);
   const createdRunRef = useRef<Execution | null>(null);
+  const createdFingerprintRef = useRef<string | null>(null);
 
   const scopedProfiles = (profiles.data ?? []).filter((profile) => !profile.project_module || profile.project_module === effectiveProject);
   const preferredProfile = scopedProfiles.find((profile) => profile.project_module === effectiveProject && profile.is_default)
@@ -55,7 +61,8 @@ export function RunComposer() {
     deployment_profile_id: effectiveProfileId || null,
     deployment_profile_name: null,
   };
-  const fingerprint = JSON.stringify(payload);
+  const activeProject = projects.data?.find((item) => item.project_id === effectiveProject);
+  const fingerprint = executionCreationFingerprint(payload, selectedRows, activeProject?.version ?? null, effectiveProfile?.revision ?? null);
 
   const prepare = useMutation({
     mutationFn: () => dashboardFetch<ExecutionPrepareResponse>("/api/beampipe/executions/prepare", { method: "POST", body: JSON.stringify(payload) }),
@@ -64,8 +71,9 @@ export function RunComposer() {
 
   const create = useMutation({
     mutationFn: async () => {
-      const creationKey = executionCreationKey(fingerprint);
-      return createOrResumeExecution({
+      const creationFingerprint = createdFingerprintRef.current ?? fingerprint;
+      const creationKey = executionCreationKey(creationFingerprint);
+      const run = await createOrResumeExecution({
         existing: createdRunRef.current,
         create: () => dashboardFetch<Execution>("/api/beampipe/executions", { method: "POST", headers: { "Idempotency-Key": creationKey }, body: JSON.stringify(payload) }),
         start: startImmediately
@@ -73,9 +81,12 @@ export function RunComposer() {
           : undefined,
         onCreated: (run) => {
           createdRunRef.current = run;
+          createdFingerprintRef.current = creationFingerprint;
           setCreatedRun(run);
         },
       });
+      consumeExecutionCreationKey(creationFingerprint, creationKey);
+      return run;
     },
     onSuccess: async (run) => {
       await Promise.all([queryClient.invalidateQueries({ queryKey: ["executions"] }), queryClient.invalidateQueries({ queryKey: ["jobs"] })]);

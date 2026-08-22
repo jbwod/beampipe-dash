@@ -1,4 +1,4 @@
-import type { Execution } from "@/shared/types/beampipe";
+import type { Execution, ExecutionCreatePayload, SourceRegistryRow } from "@/shared/types/beampipe";
 
 const CREATION_KEY_STORAGE = "beampipe:execution-create";
 
@@ -31,6 +31,32 @@ export function executionCreationKey(
   const key = randomUuid();
   storage.setItem(CREATION_KEY_STORAGE, JSON.stringify({ fingerprint, key }));
   return key;
+}
+
+export function consumeExecutionCreationKey(
+  fingerprint: string,
+  key: string,
+  storage: Pick<Storage, "getItem" | "removeItem"> = window.sessionStorage,
+) {
+  const stored = parseStoredKey(storage.getItem(CREATION_KEY_STORAGE));
+  if (stored?.fingerprint === fingerprint && stored.key === key) storage.removeItem(CREATION_KEY_STORAGE);
+}
+
+export function executionCreationFingerprint(
+  payload: ExecutionCreatePayload,
+  sources: SourceRegistryRow[],
+  projectConfigVersion: number | null,
+  profileRevision: number | null,
+) {
+  return JSON.stringify({
+    payload,
+    project_config_version: projectConfigVersion,
+    deployment_profile_revision: profileRevision,
+    source_discovery: sources.map((source) => ({
+      source_identifier: source.source_identifier,
+      discovery_signature: source.discovery_signature,
+    })),
+  });
 }
 
 function parseStoredKey(value: string | null): { fingerprint: string; key: string } | null {
